@@ -12,7 +12,6 @@ window.startPortal = ()=>{
   const qs=[...new Set(tables.map(t=>rnd(byTable[t])))];
   while(qs.length<Math.min(len,openKeys.length)){ const k=rnd(openKeys); if(!qs.includes(k)) qs.push(k); }
   portal={qs:shuffle(qs), i:0, allOk:true};
-  S.portalsThisSession++; save();
   render(`
     <div class="quiz-wrap center col" style="gap:16px;">
       <div style="font-size:64px;">🌀</div>
@@ -26,6 +25,7 @@ window.startPortal = ()=>{
 };
 window.portalNext = ()=>{
   if(portal.i>=portal.qs.length){
+    S.portalsThisSession++; // засчитываем портал только за прохождение (не за показ/выход)
     let msg;
     if(portal.allOk){
       S.sparks+=20;

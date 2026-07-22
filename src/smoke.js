@@ -102,6 +102,19 @@
       await sleep(300);
       ok("один выстрел: неверно→false, ответ НЕ показан", r===false && !reveal); }
 
+    // --- Портал: слот тратится только за прохождение, не за показ/выход ---
+    fresh("y9");
+    for(let m=2;m<=10;m++){ ensureFact(2,m).reps=1; ensureFact(3,m).reps=1; }
+    S.portalsThisSession=0; save();
+    startPortal();                       // показан экран приглашения
+    startPortal(); portalNext();         // вошли в воронку…
+    await waitQuiz(); quizQuit();         // …и вышли на первом вопросе
+    ok("портал: показ и выход в середине не тратят слот", S.portalsThisSession===0);
+    startPortal(); portalNext();
+    { let guard=0; while(portal && guard++<40){ if(!(await waitQuiz(800))) break; const {a,b}=quizState.opts; answer(a*b); } }
+    ok("портал: полное прохождение засчитано (=1)", S.portalsThisSession===1);
+    portal=null; quizState=null; clearQuizTimer();
+
     // --- Испытание Мастера: таймаут ≠ знаниевая ошибка ---
     fresh("mast");
     { const f=ensureFact(7,8); f.reps=4; f.box=4; f.errors=0; f.due=Date.now()+5*DAY; f.last=Date.now();
