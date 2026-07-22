@@ -36,7 +36,31 @@ function defaultState(){
     stats:{answers:0, correct:0},
   };
 }
-function save(){ if(!curPlayer) return false; try{ localStorage.setItem(playerKey(curPlayer.id), JSON.stringify(S)); return true; }catch(e){ return false; } }
+let saveFailed=false;
+/* Заметное предупреждение при отказе хранилища (квота/приватный режим): иначе
+   прогресс теряется молча. Баннер вне #app — переживает перерисовки render(). */
+function showSaveWarn(on){
+  let el=document.getElementById("saveWarn");
+  if(on){
+    if(!el){
+      el=document.createElement("div"); el.id="saveWarn"; el.setAttribute("role","alert");
+      el.style.cssText="position:fixed;top:0;left:0;right:0;z-index:300;background:#7a2338;color:#fff;padding:9px 12px;text-align:center;font-size:13.5px;line-height:1.35;font-family:system-ui;box-shadow:0 2px 8px #0006;";
+      el.innerHTML="⚠️ Прогресс не сохраняется — на устройстве не хватает места.<br>Скажи взрослому: освободить память или закрыть лишние вкладки браузера.";
+      document.body.appendChild(el);
+    }
+  }else if(el){ el.remove(); }
+}
+function save(){
+  if(!curPlayer) return false;
+  try{
+    localStorage.setItem(playerKey(curPlayer.id), JSON.stringify(S));
+    if(saveFailed){ saveFailed=false; showSaveWarn(false); } // хранилище снова доступно
+    return true;
+  }catch(e){
+    if(!saveFailed){ saveFailed=true; showSaveWarn(true); } // предупреждаем один раз, без спама
+    return false;
+  }
+}
 function load(){
   try{
     const raw = curPlayer ? localStorage.getItem(playerKey(curPlayer.id)) : null;
