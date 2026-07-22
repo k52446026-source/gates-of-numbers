@@ -34,7 +34,7 @@ function bossCracksHtml(){
   return `<div class="cracks">${boss.cracks.map((c,i)=>
     `<div class="crack ${c.state==="closed"?"closed":c.state==="failed"?"failed":""} ${i===boss.idx&&c.state==="open"?"current":""}">
       ${c.state==="closed"?"✔":c.state==="failed"?"✖":"⚡"}</div>`).join("")}</div>
-    <div class="bossbar"><div style="width:${boss.closed/boss.need*100}%"></div></div>`;
+    <div class="bossbar"><div style="width:${Math.min(100, boss.closed/boss.need*100)}%"></div></div>`;
 }
 window.bossNext = ()=>{
   if(!boss) return; // бой мог завершиться отступлением
@@ -60,7 +60,7 @@ window.bossNext = ()=>{
     a:x,b:y, phase:null,
     oneShot:hard, timer:hard?5:undefined, noHint:hard, // Мастер: один выстрел на трещину, на время, без подсказки
     onQuit:()=>{ const bn=boss.n; boss=null; toast("Отступление — тоже разведка. Босс будет ждать."); showLand(bn); },
-    progress:`Закрыто ${boss.closed}/${boss.need}`,
+    progress:`Закрыто ${Math.min(boss.closed, boss.need)}/${boss.need}`,
     headerHtml:`<div class="center"><div class="boss-emoji" style="--landGlow:${L.color}aa;">${L.bossIcon}</div>${bossCracksHtml()}</div>`,
     hint:`«Почти!» — рычит ${esc(L.boss)}. ${hintFor(x,y)}`,
     onDone:(ok,ms)=>{

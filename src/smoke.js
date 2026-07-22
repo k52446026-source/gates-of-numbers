@@ -158,6 +158,17 @@
       ok("босс Мастера: 2 ошибки не «усталяют» (нет пощады)", boss.closed===before && boss.failed===2); }
     boss=null; quizState=null; clearQuizTimer();
 
+    // --- Босс: прогресс не превышает цель при флолесс-добивании (косметика) ---
+    fresh("y9");
+    startBoss(6);                 // земля 6: total=7, need=5
+    boss.closed=7;                // закрыто больше need (добил все трещины ради флолесс)
+    { const barW=+bossCracksHtml().match(/width:([\d.]+)%/)[1];
+      bossNext(); await waitQuiz();
+      const app=document.getElementById("app").innerHTML;
+      ok("босс: полоса ≤100% и счётчик ≤ need (нет «7/5»)",
+         barW<=100 && app.includes("Закрыто 5/5") && !app.includes("Закрыто 7/5")); }
+    boss=null; quizState=null; clearQuizTimer();
+
     // --- Плейсмент: подтверждённая таблица открывается, карта разблокируется ---
     fresh(null); S.profile=null;
     startPlacement(); placeToggle(4); placeVerifyStart();
