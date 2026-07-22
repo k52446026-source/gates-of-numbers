@@ -78,6 +78,7 @@ window.showMap = ()=>{
       <button class="btn" onclick="showForge()">⚒️ Кузница</button>
       <button class="btn" onclick="showWorkshop()">🔬 Мастерская</button>
       <button class="btn" onclick="showHall()">🏛️ Зал Славы</button>
+      <button class="btn ghostb" onclick="showHelp()">❓ Как играть</button>
       <button class="btn ghostb" onclick="showParentGate('map')">⚙️ Панель Магистра</button>
     </div>
   `);
