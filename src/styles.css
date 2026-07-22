@@ -55,6 +55,10 @@
   .fade-in{animation:fadeIn .4s ease;}
   @keyframes fadeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
   body.static-mode *{animation:none !important; transition:none !important;}
+  /* уважение системной настройки «Уменьшение движения» (iPad/Android/ОС) */
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
 
   /* ---------- Карта ---------- */
   .lands{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}

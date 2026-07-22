@@ -49,9 +49,9 @@ function drawQuiz(hintText, wrong){
       ${hintText?`<div class="hintbox">💡 ${hintText}</div>`:""}
       <div class="numpad">
         ${[1,2,3,4,5,6,7,8,9].map(d=>`<button onclick="numTap(${d})">${d}</button>`).join("")}
-        <button class="del" onclick="numDel()">⌫</button>
+        <button class="del" onclick="numDel()" aria-label="Стереть">⌫</button>
         <button onclick="numTap(0)">0</button>
-        <button class="ok" onclick="numOk()">✓</button>
+        <button class="ok" onclick="numOk()" aria-label="Ответить">✓</button>
       </div>
     </div>
   `);

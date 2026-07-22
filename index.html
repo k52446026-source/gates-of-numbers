@@ -68,6 +68,10 @@
   .fade-in{animation:fadeIn .4s ease;}
   @keyframes fadeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
   body.static-mode *{animation:none !important; transition:none !important;}
+  /* уважение системной настройки «Уменьшение движения» (iPad/Android/ОС) */
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
 
   /* ---------- Карта ---------- */
   .lands{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
@@ -707,9 +711,9 @@ function drawQuiz(hintText, wrong){
       ${hintText?`<div class="hintbox">💡 ${hintText}</div>`:""}
       <div class="numpad">
         ${[1,2,3,4,5,6,7,8,9].map(d=>`<button onclick="numTap(${d})">${d}</button>`).join("")}
-        <button class="del" onclick="numDel()">⌫</button>
+        <button class="del" onclick="numDel()" aria-label="Стереть">⌫</button>
         <button onclick="numTap(0)">0</button>
-        <button class="ok" onclick="numOk()">✓</button>
+        <button class="ok" onclick="numOk()" aria-label="Ответить">✓</button>
       </div>
     </div>
   `);
