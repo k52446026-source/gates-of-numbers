@@ -8,20 +8,36 @@
 <body>
 <div id="app"></div>
 <div id="report" style="max-width:720px;margin:20px auto;font-family:system-ui;color:#eef0ff;padding:12px;"></div>
-<!-- та же конкатенация JS, что и в проде (строгий режим), плюс смоук. Требует `node build.mjs`. -->
-<script>window.__NO_SW = true;</script>
-<script src="dist/bundle.js"></script>
-<script src="src/smoke.js"></script>
+<!-- та же конкатенация JS, что и в проде (строгий режим), плюс смоук. Требует `node build.mjs`.
+     Скрипты грузим с cache-busting: браузер (и любой SW) не должен подсунуть
+     устаревшую сборку после пересборки — иначе прогон покажет старый результат. -->
 <script>
-  // без "use strict" из модулей мешать не будем: боот уже выполнился, перехватываем и гоняем тесты
-  (async function(){
-    const rep = document.getElementById("report");
-    const res = await runSmoke();
-    const okAll = res.failed.length===0;
-    rep.innerHTML = `<h2 style="color:${okAll?'#4ade80':'#f0a5a5'}">Смоук: ${res.passed}/${res.total} ${okAll?'✅':'❌'}</h2>`
-      + (okAll ? "" : "<ul>"+res.failed.map(f=>`<li>❌ ${f}</li>`).join("")+"</ul>");
-    document.title = (okAll?"✅ ":"❌ ")+`${res.passed}/${res.total} — смоук`;
-    window.__smoke = res;
+  window.__NO_SW = true;
+  (function(){
+    const bust = "?t=" + Date.now();
+    const load = src => new Promise((res, rej)=>{
+      const s = document.createElement("script");
+      s.src = src + bust; s.onload = res;
+      s.onerror = () => rej(new Error("не загрузился " + src));
+      document.head.appendChild(s);
+    });
+    (async function(){
+      const rep = document.getElementById("report");
+      try{
+        await load("dist/bundle.js");   // порядок важен: сперва движок…
+        await load("src/smoke.js");     // …потом тесты (определяют runSmoke)
+      }catch(e){
+        rep.innerHTML = `<h2 style="color:#f0a5a5">Ошибка загрузки: ${e.message}.<br>Запусти <code>node build.mjs</code> и обнови страницу.</h2>`;
+        document.title = "❌ сборка";
+        return;
+      }
+      const res = await runSmoke();
+      const okAll = res.failed.length===0;
+      rep.innerHTML = `<h2 style="color:${okAll?'#4ade80':'#f0a5a5'}">Смоук: ${res.passed}/${res.total} ${okAll?'✅':'❌'}</h2>`
+        + (okAll ? "" : "<ul>"+res.failed.map(f=>`<li>❌ ${f}</li>`).join("")+"</ul>");
+      document.title = (okAll?"✅ ":"❌ ")+`${res.passed}/${res.total} — смоук`;
+      window.__smoke = res;
+    })();
   })();
 </script>
 </body>
