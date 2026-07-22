@@ -1,8 +1,12 @@
 /* Service worker «Хранителей Числовых Врат»: полный офлайн (GDD §17).
    index.html — network-first: при наличии сети всегда свежая версия игры,
-   без сети — из кэша. Остальные файлы — cache-first. */
-const CACHE = "gates-v2";
+   без сети — из кэша. Предкэшированные ассеты — cache-first.
+   Всё прочее (src/*, dist/* при локальной разработке) SW НЕ кэширует —
+   иначе он «замораживает» файлы, которых нет в проде, и правки не видны. */
+const CACHE = "gates-v3";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
+// имена ассетов, которые обслуживаем из кэша (index.html идёт отдельной веткой ниже)
+const CACHEABLE = ["manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(
@@ -20,7 +24,8 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
-  const isGame = e.request.mode === "navigate" || new URL(e.request.url).pathname.endsWith("/index.html");
+  const url = new URL(e.request.url);
+  const isGame = e.request.mode === "navigate" || url.pathname.endsWith("/index.html");
   if (isGame) {
     // network-first: свежая игра при сети, кэш — в офлайне
     e.respondWith(
@@ -34,12 +39,13 @@ self.addEventListener("fetch", e => {
     );
     return;
   }
-  // остальное — cache-first
+  // из кэша — только явно предкэшированные ассеты; остальное браузер берёт из сети сам
+  if (!CACHEABLE.some(n => url.pathname.endsWith(n))) return;
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then(hit => {
       if (hit) return hit;
       return fetch(e.request).then(res => {
-        if (res.ok && new URL(e.request.url).origin === location.origin) {
+        if (res.ok && url.origin === location.origin) {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, copy));
         }
