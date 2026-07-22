@@ -1,0 +1,2444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1024">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Врата">
+<title>Хранители Числовых Врат</title>
+<style>
+  :root{
+    --bg:#0d1024; --bg2:#171b38; --card:#1e2347; --card2:#262c58;
+    --text:#eef0ff; --muted:#9aa3d0; --accent:#ffd166; --good:#4ade80; --bad:#f0a5a5;
+    --spark:#ffd166; --shard:#8be9fd;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:"Segoe UI", system-ui, -apple-system, sans-serif;
+    background:var(--bg); color:var(--text);
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, #ffffff55 50%, transparent 51%),
+      radial-gradient(1px 1px at 70% 12%, #ffffff44 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 84% 60%, #ffffff33 50%, transparent 51%),
+      radial-gradient(1px 1px at 40% 80%, #ffffff40 50%, transparent 51%),
+      radial-gradient(1px 1px at 10% 65%, #ffffff30 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 55% 45%, #ffffff25 50%, transparent 51%);
+    overflow-x:hidden;
+  }
+  #app{max-width:760px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding:12px;}
+
+  /* ---------- Общие компоненты ---------- */
+  .topbar{display:flex; align-items:center; gap:10px; padding:6px 2px 12px;}
+  .topbar .spacer{flex:1;}
+  .chip{background:var(--card); border-radius:20px; padding:6px 12px; font-size:15px; white-space:nowrap; border:1px solid #ffffff14;}
+  .btn{
+    display:inline-block; border:none; cursor:pointer; font-family:inherit;
+    background:var(--card2); color:var(--text); border-radius:14px;
+    padding:12px 20px; font-size:17px; border-bottom:3px solid #00000055;
+    transition:transform .08s;
+  }
+  .btn:active{transform:translateY(2px); border-bottom-width:1px;}
+  .btn.primary{background:linear-gradient(135deg,#ffd166,#ff9a3c); color:#3a2200; font-weight:700;}
+  .btn.ghostb{background:transparent; border:1px solid #ffffff2e; border-bottom-width:1px;}
+  .btn.small{padding:8px 14px; font-size:14px; border-radius:10px;}
+  .btn.big{padding:16px 28px; font-size:20px; border-radius:18px;}
+  .btn:disabled{opacity:.4; cursor:default;}
+  .card{background:var(--card); border-radius:18px; padding:18px; border:1px solid #ffffff12;}
+  .center{text-align:center;}
+  h1{font-size:26px;} h2{font-size:21px;} h3{font-size:17px;}
+  .muted{color:var(--muted);}
+  .grow{flex:1;}
+  .row{display:flex; gap:10px; align-items:center;}
+  .col{display:flex; flex-direction:column; gap:10px;}
+  .banner{
+    background:linear-gradient(90deg,#4c1d95cc,#7c3aedcc); border-radius:14px;
+    padding:10px 14px; font-size:15px; border:1px solid #a78bfa55;
+  }
+  /* клавиатурная навигация: видимый фокус */
+  .btn:focus-visible, .numpad button:focus-visible, select:focus-visible, input:focus-visible,
+  [role="button"]:focus-visible{
+    outline:3px solid var(--accent); outline-offset:2px;
+  }
+  .fade-in{animation:fadeIn .4s ease;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  body.static-mode *{animation:none !important; transition:none !important;}
+
+  /* ---------- Карта ---------- */
+  .lands{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .land-tile{
+    position:relative; border-radius:16px; padding:14px 10px 12px; cursor:pointer;
+    border:1px solid #ffffff1c; text-align:center; color:#fff;
+    border-bottom:4px solid #00000066; transition:transform .1s;
+    min-height:112px; display:flex; flex-direction:column; justify-content:center; gap:4px;
+  }
+  .land-tile:active{transform:scale(.97);}
+  .land-tile .lnum{font-size:30px; font-weight:800; text-shadow:0 2px 4px #00000088;}
+  .land-tile .lname{font-size:12.5px; opacity:.95; line-height:1.2;}
+  .land-tile .lprog{font-size:11px; opacity:.85;}
+  .land-tile.locked{filter:grayscale(.85) brightness(.55); }
+  .land-tile.done::after{content:"👑"; position:absolute; top:6px; right:8px; font-size:16px;}
+  .land-tile .agent{
+    position:absolute; top:-8px; left:-6px; font-size:22px;
+    animation:agentPulse 1.2s infinite alternate; filter:drop-shadow(0 0 6px #a855f7);
+  }
+  @keyframes agentPulse{from{transform:scale(1);} to{transform:scale(1.2);}}
+  .map-actions{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;}
+  .map-actions .btn{font-size:15px; padding:12px 10px;}
+  .portal-btn{
+    background:radial-gradient(circle at 50% 40%, #7c3aed, #2e1065) !important;
+    color:#e9d5ff !important; animation:portalSpin 3s linear infinite; border:1px solid #a855f7aa !important;
+  }
+  @keyframes portalSpin{0%{box-shadow:0 0 8px #a855f7aa;} 50%{box-shadow:0 0 20px #a855f7;} 100%{box-shadow:0 0 8px #a855f7aa;}}
+
+  /* ---------- Земля: врата ---------- */
+  .gates{display:grid; grid-template-columns:repeat(5,1fr); gap:10px;}
+  .gate{
+    position:relative; height:86px; border-radius:12px 12px 6px 6px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    background:linear-gradient(180deg,#3a3f6e,#23274d); border:1px solid #ffffff22;
+    border-top-left-radius:40px; border-top-right-radius:40px;
+    font-weight:700; font-size:15px; transition:transform .1s;
+  }
+  .gate:active{transform:scale(.95);}
+  .gate .glabel{font-size:15px;}
+  .gate .gsub{font-size:10.5px; font-weight:400; color:var(--muted);}
+  .gate.locked{background:linear-gradient(180deg,#20233f,#181a30); color:#5b628f;}
+  .gate.locked .gsub{color:#4a5080;}
+  .gate.open{box-shadow:0 0 12px var(--landGlow,#ffd16655) inset, 0 0 8px var(--landGlow,#ffd16633);}
+  .gate.twin::before{content:"🔁"; position:absolute; top:4px; right:5px; font-size:11px;}
+  .gate.due1{opacity:.85; animation:flicker 2s infinite;}
+  .gate.due2{opacity:.55;}
+  .gate.due3{opacity:.32; animation:flicker 1.4s infinite;}
+  @keyframes flicker{0%,100%{filter:brightness(1);} 50%{filter:brightness(1.5);}}
+  .boss-card{margin-top:14px;}
+
+  /* ---------- Экран вопроса ---------- */
+  .quiz-wrap{flex:1; display:flex; flex-direction:column; justify-content:center; gap:18px; padding-bottom:8px;}
+  .equation{
+    text-align:center; font-size:52px; font-weight:800; letter-spacing:2px;
+    font-variant-numeric:tabular-nums;
+  }
+  .equation .ans{
+    display:inline-block; min-width:86px; border-bottom:4px solid var(--accent);
+    color:var(--accent); text-align:center;
+  }
+  .equation.plain{color:#111;}
+  .numpad{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:340px; margin:0 auto; width:100%;}
+  .numpad button{
+    font-size:26px; padding:14px 0; border-radius:14px; border:none; cursor:pointer;
+    background:var(--card2); color:var(--text); border-bottom:3px solid #00000055; font-family:inherit;
+  }
+  .numpad button:active{transform:translateY(2px);}
+  .numpad .ok{background:linear-gradient(135deg,#4ade80,#16a34a); color:#052e12; font-weight:800;}
+  .numpad .del{color:var(--muted);}
+  .phase-tag{text-align:center; font-size:13px; color:var(--muted); letter-spacing:1px; text-transform:uppercase;}
+  .hintbox{
+    background:#3b2f0e; border:1px solid #ffd16655; color:#ffe9b0;
+    border-radius:14px; padding:12px 16px; font-size:16.5px; text-align:center; line-height:1.45;
+  }
+  .scene{
+    display:flex; flex-direction:column; align-items:center; gap:14px; padding:10px 0;
+  }
+  .dots{display:flex; flex-direction:column; gap:7px; align-items:center;}
+  .dotrow{display:flex; gap:12px;}
+  .dotgrp{display:flex; gap:4px;}
+  .dot{width:16px; height:16px; border-radius:50%; background:var(--accent); box-shadow:0 0 5px #ffd16688;}
+  body.subitize .dot{width:22px; height:22px;}
+  .shake{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0);} 25%{transform:translateX(-8px);} 75%{transform:translateX(8px);}}
+  .pop{animation:pop .45s;}
+  @keyframes pop{0%{transform:scale(1);} 40%{transform:scale(1.25);} 100%{transform:scale(1);}}
+
+  /* Режим Без магии */
+  body.paper{background:#f5f5f0 !important; background-image:none !important; color:#111;}
+  body.paper .equation .ans{color:#0a58ca; border-color:#0a58ca;}
+  body.paper .numpad button{background:#fff; color:#111; border:1px solid #ccc; border-bottom:3px solid #bbb;}
+  body.paper .numpad .ok{background:#198754; color:#fff; border-color:#146c43;}
+  body.paper .phase-tag{color:#888;}
+  body.paper .chip{background:#fff; color:#333; border-color:#ddd;}
+  body.paper .btn.ghostb{color:#333; border-color:#bbb;}
+
+  /* ---------- Босс ---------- */
+  .boss-head{display:flex; align-items:center; gap:14px;}
+  .boss-emoji{font-size:52px; filter:drop-shadow(0 0 10px var(--landGlow,#ffd166aa));}
+  .cracks{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin:10px 0;}
+  .crack{
+    width:38px; height:38px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    font-size:19px; background:#111530; border:1px solid #ffffff22;
+  }
+  .crack.closed{background:linear-gradient(135deg,#4ade80,#16a34a); border-color:#4ade80;}
+  .crack.failed{background:#5b2333; border-color:#f0a5a566;}
+  .crack.current{outline:2px solid var(--accent); animation:flicker 1s infinite;}
+  .bossbar{height:10px; background:#111530; border-radius:6px; overflow:hidden; margin-top:8px;}
+  .bossbar>div{height:100%; background:linear-gradient(90deg,#4ade80,#a3e635); transition:width .3s;}
+
+  /* ---------- Бой-молния (реванш на скорость) ---------- */
+  .blitz-bar{height:6px; background:#111530; border-radius:4px; overflow:hidden; max-width:340px; margin:6px auto 0; width:100%;}
+  .blitz-bar>div{height:100%; background:linear-gradient(90deg,#ffd166,#fb923c); animation:drain 3s linear forwards;}
+  @keyframes drain{from{width:100%;} to{width:0;}}
+  body.static-mode .blitz-bar{display:none;}
+  .qtimer{height:9px; background:var(--card2); border-radius:5px; overflow:hidden; max-width:340px; margin:2px auto 0; width:100%;}
+  .qtimer>div{height:100%; width:100%; background:linear-gradient(90deg,#f0a5a5,#e0564e); transition:width .09s linear;}
+
+  /* ---------- Финальный босс ---------- */
+  .chaos-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:6px;}
+  .ctile{
+    aspect-ratio:1; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; background:#23274d; border:1px solid #ffffff18; cursor:default;
+  }
+  .ctile.broken{background:#3d1030; border-color:#f0a5a555; cursor:pointer; animation:flicker 1.6s infinite;}
+  .ctile.fixed{background:linear-gradient(135deg,#2563eb,#4ade80); border-color:#4ade8088;}
+
+  /* ---------- Кузница / Зал ---------- */
+  .shop{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+  .shop-item{background:var(--card2); border-radius:14px; padding:12px 8px; text-align:center; cursor:pointer; border:1px solid #ffffff14;}
+  .shop-item .icon{font-size:34px;}
+  .shop-item.owned{border-color:#4ade8088; box-shadow:0 0 8px #4ade8033;}
+  .shop-item .price{font-size:13px; color:var(--spark);}
+  .fresco{display:grid; grid-template-columns:repeat(10,1fr); gap:2px; border-radius:12px; overflow:hidden; aspect-ratio:1; max-width:340px; margin:0 auto;}
+  .fcell{background:#111530;}
+  .fcell.on{background-image:conic-gradient(from 180deg at 50% 120%, #7c3aed, #2563eb, #06b6d4, #4ade80, #ffd166, #fb923c, #f43f5e, #7c3aed); background-size:1000% 1000%;}
+  .fireworks{position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:50;}
+  .sparkfly{position:absolute; font-size:20px; animation:fly 1.4s ease-out forwards;}
+  @keyframes fly{from{transform:translate(0,0) scale(1); opacity:1;} to{transform:translate(var(--dx),var(--dy)) scale(.3); opacity:0;}}
+
+  /* ---------- Диплом ---------- */
+  .diploma{
+    background:#fdf6e3; color:#4a3200; border:8px double #b8860b; border-radius:8px;
+    padding:30px 22px; text-align:center; font-family:Georgia, serif;
+  }
+  .diploma h2{font-size:24px; margin-bottom:8px;}
+  @media print{
+    body *{visibility:hidden;}
+    .diploma, .diploma *{visibility:visible;}
+    .diploma{position:fixed; inset:20px;}
+  }
+
+  /* ---------- Постепенная «отмена магии» — GDD §9 ---------- */
+  /* этап 2+: подписи фаз и свечение исчезают */
+  body.magic-soft .phase-tag{display:none;}
+  body.magic-soft .gate.open{box-shadow:none;}
+  /* этап 3+: мерцание и пульсация затихают */
+  body.magic-min .gate.due1, body.magic-min .gate.due3{animation:none;}
+  body.magic-min .land-tile .agent{animation:none;}
+  body.magic-min .portal-btn{animation:none;}
+  /* этап 4: мир вспомнил себя — дневная тема */
+  body.day{ --bg:#eef1f8; --bg2:#e2e6f2; --card:#ffffff; --card2:#eef0fa; --text:#242b52; --muted:#5b6590;
+    background:#eef1f8; background-image:none; }
+  body.day .lore{background:#e6e9f6; color:#3a4370;}
+  body.day .hintbox{background:#fff7dd; color:#6b5200; border-color:#e0c26a;}
+  body.day .btn.ghostb{border-color:#00000022;}
+  body.day .chip{border-color:#00000014;}
+  body.day .card{border-color:#00000010;}
+  body.day .equation .ans{color:#b07800; border-color:#b07800;}
+  body.day .numpad button{border-bottom-color:#c9cede;}
+
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:#000000d9; color:#fff; padding:10px 20px; border-radius:24px;
+    font-size:15px; z-index:100; animation:fadeIn .3s; max-width:90vw; text-align:center;
+    border:1px solid #ffffff33;
+  }
+  /* Хаб «Тренировка» */
+  .train-card{
+    display:flex; align-items:center; gap:14px; width:100%; text-align:left; cursor:pointer; font-family:inherit;
+    background:var(--card2); color:var(--text); border:1px solid #ffffff14; border-bottom:3px solid #00000055;
+    border-radius:16px; padding:14px 16px; transition:transform .08s;
+  }
+  .train-card:active{transform:translateY(2px);}
+  .train-card .tc-ic{font-size:30px; flex:none; width:40px; text-align:center;}
+  .train-card .tc-tx{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .train-card .tc-tx b{font-size:16px;}
+  .train-card .muted{color:inherit; opacity:.72; font-size:13px;}
+
+  /* Профили детей */
+  .players{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; max-width:420px;}
+  .player-tile{
+    width:110px; height:120px; border-radius:18px; cursor:pointer; font-family:inherit;
+    background:var(--card2); color:var(--text); border:1px solid #ffffff1c; border-bottom:4px solid #00000055;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; transition:transform .08s;
+  }
+  .player-tile:active{transform:translateY(2px);}
+  .player-tile.cur{border-color:var(--accent); box-shadow:0 0 12px #ffd16644;}
+  .player-tile.add{background:transparent; border-style:dashed;}
+  .player-tile .pemoji{font-size:42px; line-height:1;}
+  .player-tile .pname{font-size:15px; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .emoji-pick{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:340px;}
+  .emoji-pick .ebtn{
+    width:46px; height:46px; font-size:24px; border-radius:12px; cursor:pointer; font-family:inherit;
+    background:var(--card2); color:var(--text); border:1px solid #ffffff1c;
+  }
+  .emoji-pick .ebtn.on{border-color:var(--accent); box-shadow:0 0 8px #ffd16655; background:var(--card);}
+  .settings-row{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid #ffffff10; flex-wrap:wrap;}
+  select{background:var(--card2); color:var(--text); border:1px solid #ffffff2a; border-radius:10px; padding:8px 10px; font-size:15px; font-family:inherit;}
+  .lore{font-style:italic; color:#c7cdf5; background:#141838; padding:10px 14px; border-radius:12px; border-left:3px solid var(--shard); font-size:14.5px;}
+  @media (max-width:480px){
+    .gates{grid-template-columns:repeat(4,1fr);}
+    .equation{font-size:42px;}
+    .chaos-grid{grid-template-columns:repeat(5,1fr);}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+/* =====================================================================
+   ХРАНИТЕЛИ ЧИСЛОВЫХ ВРАТ — прототип по GDD v2.0
+   Один файл, без зависимостей. Прогресс — в localStorage.
+   ===================================================================== */
+
+/* ---------------- Данные мира ---------------- */
+const LANDS = [
+  {n:2,  name:"Пещеры Двух",    boss:"Голем-Зеркало",        icon:"🕳️", bossIcon:"🗿", color:"#2563eb",
+   trick:"«Пара»: умножить на 2 — значит удвоить. N×2 = N + N. Пара глаз, пара рук!"},
+  {n:3,  name:"Лес Трёх",       boss:"Трёхглавая Дриада",    icon:"🌲", bossIcon:"🐉", color:"#16a34a",
+   trick:"«Триада»: N×3 = N×2 + ещё N. Сначала удвой, потом добавь ещё раз."},
+  {n:4,  name:"Кузница Четырёх",boss:"Огненный Кузнец",      icon:"⚒️", bossIcon:"🔥", color:"#ea580c",
+   trick:"«Удвой дважды»: N×4 = N×2, а потом ещё раз ×2. Два удара молота!"},
+  {n:5,  name:"Озеро Пяти",     boss:"Левиафан Пятёрка",     icon:"🌊", bossIcon:"🐋", color:"#0891b2",
+   trick:"«Половина от ×10»: N×5 = N×10 пополам. 8×10=80, половина — 40!"},
+  {n:6,  name:"Башня Шести",    boss:"Шестикрылый Грифон",   icon:"🏰", bossIcon:"🦅", color:"#7c3aed",
+   trick:"«×5 и ещё раз»: N×6 = N×5 + N. Сначала пятёрка, потом добавь N."},
+  {n:7,  name:"Пустыня Семи",   boss:"Джинн Семи Печатей",   icon:"🏜️", bossIcon:"🧞", color:"#d4a24e",
+   trick:"«Календарь»: 7 — это дни недели. N×7 = N недель! 2 недели = 14 дней, 3 недели = 21 день…"},
+  {n:8,  name:"Ледник Восьми",  boss:"Морозный Великан",     icon:"🧊", bossIcon:"❄️", color:"#38bdf8",
+   trick:"«Удвой трижды»: N×8 = N×2×2×2. Три удара молота! Или: N×10 минус N×2."},
+  {n:9,  name:"Вулкан Девяти",  boss:"Дракон Девяти Огней",  icon:"🌋", bossIcon:"🐲", color:"#b91c1c",
+   trick:"«Трюк с пальцами»: разложи 10 пальцев, загни палец с номером N — слева десятки, справа единицы! И проверка: N×9 = N×10 − N."},
+  {n:10, name:"Замок Десяти",   boss:"Хаос Забвения",        icon:"🏯", bossIcon:"🌀", color:"#eab308",
+   trick:"«Припиши ноль»: N×10 — просто допиши 0 к числу N. 7×10 = 70!"},
+];
+const landOf = n => LANDS.find(l=>l.n===n);
+
+/* Боссы: [трещин, надо закрыть, можно ошибиться] — GDD §7.1 */
+const BOSS_CFG = {2:[5,4,1],3:[5,4,1],4:[6,5,1],5:[6,5,1],6:[7,5,2],7:[7,5,2],8:[8,6,2],9:[8,6,2],10:[9,7,2]};
+const BOSS_SOFT = [5,3,2]; // мягкий режим (дискалькулия / тревожность)
+
+/* Профили — GDD §3, §12 */
+const PROFILES = {
+  y7:  {label:"Неспешный темп", portalMax:1, portalLen:3, srs:1.5, newPerTrip:5, softBoss:false, subitize:false, calm:false, static:false},
+  y9:  {label:"Бодрый темп",    portalMax:2, portalLen:5, srs:1.0, newPerTrip:7, softBoss:false, subitize:false, calm:false, static:false},
+  dys: {label:"Особый темп",   portalMax:0, portalLen:0, srs:2.0, newPerTrip:3, softBoss:true,  subitize:true,  calm:true,  static:false},
+  adhd:{label:"Фокус",         portalMax:1, portalLen:2, srs:1.0, newPerTrip:4, softBoss:false, subitize:false, calm:false, static:true},
+  anx: {label:"Спокойствие",   portalMax:1, portalLen:3, srs:1.0, newPerTrip:5, softBoss:true,  subitize:false, calm:true,  static:false},
+  mast:{label:"Мастер (10+)",  portalMax:2, portalLen:6, srs:1.0, newPerTrip:9, softBoss:false, subitize:false, calm:false, static:false, hard:true},
+};
+
+/* SRS-интервалы (дни) по «коробкам» — упрощённый Лейтнер */
+const SRS_DAYS = [0, 1, 3, 7, 14, 30];
+const DAY = 24*3600*1000;
+
+/* Осколки лора — собираются при повторениях и в порталах */
+const LORE = [
+  "Когда-то все Врата пели хором, и мир Арифметика звенел, как колокол.",
+  "Хаос Забвения родился из одного-единственного «я потом повторю».",
+  "Магистр Множитель в детстве боялся семёрки. Теперь она его лучший друг.",
+  "Врата-близнецы построили два брата-мастера: один шёл слева, другой справа.",
+  "Под Замком Десяти течёт река Нулей: всё, что в неё падает, исчезает.",
+  "Джинн Семи Печатей считает дни недели, чтобы не забыть, кто он.",
+  "Дракон Девяти Огней прячет на лапах секрет: его пальцы умеют считать.",
+  "Искры — это застывшие правильные ответы древних Хранителей.",
+  "Голем-Зеркало повторяет всё дважды, потому что дважды — надёжнее.",
+  "Фреска Арифметики — карта памяти всего мира. Собери её — и мир вспомнит себя.",
+  "Морозный Великан складывает лёд в стопки по восемь. Три удвоения — и мост готов.",
+  "Левиафан Пятёрка дружит с Замком Десяти: он ровно его половина.",
+];
+
+const ARTIFACTS = [
+  {id:"crown7",  icon:"👑", name:"Корона Семёрки",     title:"Повелитель Семёрки"},
+  {id:"scale9",  icon:"🐲", name:"Чешуя Дракона",       title:"Укротитель Девятки"},
+  {id:"hammer",  icon:"🔨", name:"Молот Прадеда",       title:"Мастер Молота"},
+  {id:"lens",    icon:"🔮", name:"Линза Памяти",        title:"Хранитель Памяти"},
+  {id:"compass", icon:"🧭", name:"Компас Хаоса",        title:"Ходок между Землями"},
+  {id:"key",     icon:"🗝️", name:"Ключ Подземелья",     title:"Свет в Уголке Забвения"},
+  {id:"bolt",    icon:"⚡", name:"Сердце Молнии",       title:"Молниеносный Хранитель"}, // только за все Бои-молнии
+  {id:"trial",   icon:"🏆", name:"Печать Мастера",       title:"Гроссмейстер Таблицы"},  // только за золото Испытания Мастера
+];
+
+const SHOP = [
+  {id:"helm1",  icon:"⛑️", name:"Шлем ученика",   price:30},
+  {id:"cloak1", icon:"🧣", name:"Плащ странника", price:50},
+  {id:"ham1",   icon:"🔨", name:"Молот-искра",    price:80},
+  {id:"shield", icon:"🛡️", name:"Щит близнецов",  price:120},
+  {id:"cloak2", icon:"🧥", name:"Плащ Магистра",  price:200},
+  {id:"ham2",   icon:"⚡", name:"Гром-молот",     price:300},
+];
+
+/* ---------------- Игроки (профили детей) ---------------- */
+const SAVE_PREFIX = "gates_save_v1";   // сейв на каждого ребёнка: SAVE_PREFIX + "__" + id
+const REG_KEY = "gates_players";       // реестр: {players:[{id,name,emoji}], current}
+const PLAYER_EMOJI = ["🦊","🐯","🐼","🦄","🐉","🦉","🐬","🐢","🦖","🦁","🐸","🐵","🦕","🐺","🦋","⚡","🌟","🗝️"];
+let curPlayer = null;
+const playerKey = id => SAVE_PREFIX + "__" + id;
+function loadRegistry(){ try{ return JSON.parse(localStorage.getItem(REG_KEY)) || {players:[],current:null}; }catch(e){ return {players:[],current:null}; } }
+function saveRegistry(r){ try{ localStorage.setItem(REG_KEY, JSON.stringify(r)); }catch(e){} }
+
+/* ---------------- Состояние ---------------- */
+let S = null;
+
+function defaultState(){
+  return {
+    ver:1,
+    profile:null,          // ключ из PROFILES
+    introDone:false,
+    facts:{},              // "3x7": {reps, box, due, last, errors, streak, slowCnt}
+    bossDone:{},           // n -> true
+    blitzDone:{},          // n -> лучший счёт молний в реванше
+    chaosDone:false,
+    allLandsOpen:false,   // включается после «Испытания на знание» — карта свободна
+    trialBest:0,          // лучший ранг «Испытания Мастера»: 1 бронза, 2 серебро, 3 золото
+    sparks:0,
+    shards:[],             // индексы LORE (могут повторяться -> фрагменты фрески)
+    frescoCells:[],        // открытые клетки 0..99
+    artifacts:[],
+    items:[],              // купленное в кузнице
+    tricksShown:{},        // n -> true (трюк уже выдан)
+    landErrors:{},         // n -> счётчик ошибок в земле (для just-in-time трюков)
+    noMagicResults:[],     // {ts, correct, total}
+    diploma:false,
+    settings:{sound:true, voice:false, static:false, calm:false, srsMult:1.0, portalMax:null},
+    portalsThisSession:0, sessionDay:null, newToday:0,
+    streak:{days:0, last:null},
+    stats:{answers:0, correct:0},
+  };
+}
+function save(){ if(!curPlayer) return; try{ localStorage.setItem(playerKey(curPlayer.id), JSON.stringify(S)); }catch(e){} }
+function load(){
+  try{
+    const raw = curPlayer ? localStorage.getItem(playerKey(curPlayer.id)) : null;
+    if(raw){
+      const p = JSON.parse(raw);
+      S = defaultState();
+      // вложенные ветки сливаем глубоко: новые ключи по умолчанию переживают старый сейв
+      for(const k of Object.keys(p)){
+        if((k==="settings"||k==="stats"||k==="streak") && p[k] && typeof p[k]==="object") Object.assign(S[k], p[k]);
+        else S[k]=p[k];
+      }
+      S.ver=1;
+      return;
+    }
+  }catch(e){}
+  S = defaultState();
+}
+
+/* Реестр игроков: миграция старого единого сейва, создание, выбор, удаление */
+function bootPlayers(){
+  const reg = loadRegistry();
+  // одноразовая миграция сейва старого формата (единый ключ) в первого игрока
+  if(!reg.players.length && localStorage.getItem(SAVE_PREFIX)){
+    const id = "p"+Date.now();
+    try{ localStorage.setItem(playerKey(id), localStorage.getItem(SAVE_PREFIX)); localStorage.removeItem(SAVE_PREFIX); }catch(e){}
+    reg.players.push({id, name:"Хранитель", emoji:"🧙"});
+    reg.current = id;
+    saveRegistry(reg);
+  }
+  return reg;
+}
+function newPlayerId(){ return "p"+Date.now()+Math.floor(Math.random()*1000); }
+window.selectPlayer = id=>{
+  const reg = loadRegistry();
+  const p = reg.players.find(x=>x.id===id);
+  if(!p) return showPlayerPick();
+  curPlayer = p; reg.current = id; saveRegistry(reg);
+  load(); applyBodyModes(); document.body.classList.remove("paper");
+  showTitle();
+};
+function createPlayer(name, emoji){
+  const reg = loadRegistry();
+  const id = newPlayerId();
+  const p = {id, name:(name||"Хранитель").slice(0,16), emoji:emoji||"🦊"};
+  reg.players.push(p); reg.current = id; saveRegistry(reg);
+  curPlayer = p; S = defaultState(); save();
+  applyBodyModes(); document.body.classList.remove("paper");
+  showTitle();
+}
+window.deletePlayer = id=>{
+  const reg = loadRegistry();
+  reg.players = reg.players.filter(x=>x.id!==id);
+  if(reg.current===id) reg.current = reg.players[0] ? reg.players[0].id : null;
+  saveRegistry(reg);
+  try{ localStorage.removeItem(playerKey(id)); }catch(e){}
+  if(curPlayer && curPlayer.id===id) curPlayer = null;
+};
+
+/* ---------------- Утилиты ---------------- */
+const app = document.getElementById("app");
+function render(html){ app.innerHTML = html; app.firstElementChild && app.firstElementChild.classList.add("fade-in"); window.scrollTo(0,0); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function toast(msg, ms=2200){
+  document.querySelectorAll(".toast").forEach(x=>x.remove());
+  const t=document.createElement("div"); t.className="toast"; t.innerHTML=msg;
+  t.setAttribute("role","status"); t.setAttribute("aria-live","polite");
+  document.body.appendChild(t); setTimeout(()=>t.remove(), ms);
+}
+function fireworks(n=14, force){
+  if(prof().static || S.settings.static) return;
+  if(!force){ // «отмена магии» глушит только фоновые салюты; force — для явных побед
+    const st=magicStage();
+    if(st>=3) return;            // магия — фон: без салютов
+    if(st>=1) n=Math.ceil(n/2);  // магия упрощается: салюты скромнее
+  }
+  const box=document.createElement("div"); box.className="fireworks";
+  for(let i=0;i<n;i++){
+    const s=document.createElement("div"); s.className="sparkfly"; s.textContent=rnd(["✨","⭐","💫"]);
+    s.style.left="50%"; s.style.top="50%";
+    s.style.setProperty("--dx",(Math.random()*400-200)+"px");
+    s.style.setProperty("--dy",(Math.random()*400-200)+"px");
+    box.appendChild(s);
+  }
+  document.body.appendChild(box); setTimeout(()=>box.remove(),1500);
+}
+function prof(){ return PROFILES[S.profile || "y7"]; }
+/* Постепенная «отмена магии» — GDD §9. Прокси недель — победы над боссами:
+   0 (0–2 босса) полная магия · 1 (3–4) магия упрощается · 2 (5–7) магия тает ·
+   3 (8) магия — фон · 4 (Хаос пал) мир без магии */
+const MAGIC_STAGES=["Полная магия","Магия упрощается","Магия тает","Магия — фон","Мир без магии"];
+function magicStage(){
+  if(S.chaosDone) return 4;
+  const b=Object.keys(S.bossDone).length;
+  return b>=8 ? 3 : b>=5 ? 2 : b>=3 ? 1 : 0;
+}
+function applyBodyModes(){
+  const st=magicStage();
+  document.body.classList.toggle("static-mode", !!(prof().static || S.settings.static));
+  document.body.classList.toggle("subitize", !!prof().subitize);
+  document.body.classList.toggle("magic-soft", st>=2);
+  document.body.classList.toggle("magic-min", st>=3);
+  document.body.classList.toggle("day", st>=4);
+}
+
+/* ---------------- Звук ---------------- */
+let AC=null;
+function beep(freqs, dur=0.12, type="sine", gain=0.08){
+  if(!S.settings.sound) return;
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    freqs.forEach((f,i)=>{
+      const o=AC.createOscillator(), g=AC.createGain();
+      o.type=type; o.frequency.value=f;
+      g.gain.setValueAtTime(gain, AC.currentTime + i*dur);
+      g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + i*dur + dur);
+      o.connect(g); g.connect(AC.destination);
+      o.start(AC.currentTime + i*dur); o.stop(AC.currentTime + i*dur + dur);
+    });
+  }catch(e){}
+}
+const sndGood = ()=>beep([523,659,784], 0.11);
+const sndBad  = ()=>beep([220,196], 0.16, "triangle", 0.05);
+const sndWin  = ()=>beep([523,659,784,1047,784,1047], 0.1);
+function speak(text){
+  if(!S.settings.voice) return;
+  try{
+    const u=new SpeechSynthesisUtterance(text); u.lang="ru-RU"; u.rate=0.92;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ---------------- Числа словами (для мантр) ---------------- */
+const UNITS=["ноль","один","два","три","четыре","пять","шесть","семь","восемь","девять"];
+const TEENS=["десять","одиннадцать","двенадцать","тринадцать","четырнадцать","пятнадцать","шестнадцать","семнадцать","восемнадцать","девятнадцать"];
+const TENS=["","десять","двадцать","тридцать","сорок","пятьдесят","шестьдесят","семьдесят","восемьдесят","девяносто"];
+function numWords(n){
+  if(n<10) return UNITS[n];
+  if(n<20) return TEENS[n-10];
+  if(n===100) return "сто";
+  const t=Math.floor(n/10), u=n%10;
+  return TENS[t] + (u? " "+UNITS[u] : "");
+}
+const MULT_ADV={1:"один раз",2:"дважды",3:"трижды",4:"четырежды",5:"пятью",6:"шестью",7:"семью",8:"восемью",9:"девятью",10:"десятью"};
+function mantra(a,b){ return `${MULT_ADV[a]||a} ${numWords(b)} — ${numWords(a*b)}`; }
+
+/* ---------------- Факты и SRS ---------------- */
+function keyOf(a,b){ const [x,y]=a<=b?[a,b]:[b,a]; return x+"x"+y; }
+function fact(a,b){ return S.facts[keyOf(a,b)] || null; }
+function isOpen(a,b){ const f=fact(a,b); return !!(f && f.reps>0); }
+function ensureFact(a,b){
+  const k=keyOf(a,b);
+  if(!S.facts[k]) S.facts[k]={reps:0, box:0, due:0, last:0, errors:0, streak:0, slowCnt:0};
+  return S.facts[k];
+}
+function srsMult(){ return (S.settings.srsMult||1) * prof().srs; }
+function scheduleNext(f, ok){
+  const now=Date.now();
+  if(ok){ f.box=Math.min(f.box+1, SRS_DAYS.length-1); f.streak++; }
+  else  { f.box=Math.max(f.box-1, 1); f.streak=0; }
+  f.last=now;
+  f.due = now + SRS_DAYS[f.box]*DAY/srsMult();
+}
+/* уровень «призрачности»: 0 свежие, 1 мерцают, 2 полупрозрачные, 3 призрак */
+function ghostLevel(f){
+  if(!f || f.reps===0) return 0;
+  const over = Date.now() - f.due;
+  if(over<0) return 0;
+  if(over < 2*DAY/srsMult()) return 1;
+  if(over < 6*DAY/srsMult()) return 2;
+  return 3;
+}
+function isDue(f){ return f && f.reps>0 && Date.now()>=f.due; }
+/* фаза повторения по реально прошедшему времени (GDD §5): «SRS-дни» = дни × темп профиля */
+function phaseFor(f){
+  const srsDays=(Date.now()-f.last)/DAY*srsMult();
+  return srsDays<2 ? 2 : srsDays<6 ? 3 : 4;
+}
+/* «липкие» примеры для Уголка Забвения — GDD §6.2 */
+function stickyFacts(){
+  return Object.entries(S.facts)
+    .filter(([k,f]) => f.reps>0 && (f.errors>=2 || f.slowCnt>=2))
+    .map(([k])=>k);
+}
+function parseKey(k){ const [a,b]=k.split("x").map(Number); return {a,b}; }
+/* все ключи земли n: n×m, m=2..10 (×1 — зеркальные, открываются во вступлении) */
+function landKeys(n){ const r=[]; for(let m=2;m<=10;m++) r.push(keyOf(n,m)); return [...new Set(r)]; }
+function landOpenCount(n){ return landKeys(n).filter(k=>{const f=S.facts[k]; return f&&f.reps>0;}).length; }
+function landDueCount(n){ return landKeys(n).filter(k=>isDue(S.facts[k])).length; }
+function landUnlocked(n){
+  if(n===2 || S.allLandsOpen) return true; // знаток гуляет по карте свободно
+  const idx=LANDS.findIndex(l=>l.n===n);
+  const prev=LANDS[idx-1].n;
+  return landOpenCount(prev)===landKeys(prev).length; // все врата прошлой земли открыты
+}
+function totalOpen(){ // из 45 «настоящих» + 10 зеркальных = 55
+  const real=Object.values(S.facts).filter(f=>f.reps>0).length;
+  return real + (S.introDone?10:0);
+}
+function openFresco(k){
+  for(let i=0;i<k;i++){
+    const closed=[]; for(let c=0;c<100;c++) if(!S.frescoCells.includes(c)) closed.push(c);
+    if(!closed.length) return;
+    S.frescoCells.push(rnd(closed));
+  }
+}
+function grantShard(){
+  const idx=Math.floor(Math.random()*LORE.length);
+  S.shards.push(idx);
+  openFresco(2);
+  save();
+  return LORE[idx];
+}
+/* сглаженное время ответа — для метрики автоматизации (<2 сек) */
+function recTime(f,ms){ if(ms>0 && ms<60000) f.ema = f.ema ? Math.round(f.ema*0.7+ms*0.3) : ms; }
+function grantArtifact(){
+  const left=ARTIFACTS.filter(a=>!S.artifacts.includes(a.id) && a.id!=="bolt" && a.id!=="trial");
+  if(!left.length) return null;
+  const a=rnd(left); S.artifacts.push(a.id); save(); return a;
+}
+
+/* ---------------- Подсказки-декомпозиции — GDD §7.2 ---------------- */
+let hintFlip=false;
+function hintFor(a,b){
+  // t — «таблица» подсказки (больший множитель), k — второй
+  const t=Math.max(a,b), k=Math.min(a,b);
+  // чередуем два пути к ответу (Baroody, GDD §2): табличный трюк и «сосед снизу»
+  hintFlip=!hintFlip;
+  if(hintFlip && t>2 && t<10){
+    return `Сосед снизу: ${k}×${t} = ${k}×${t-1} + ${k} = ${k*(t-1)} + ${k}. Сколько это?`;
+  }
+  switch(t){
+    case 2: return `${k}×2 — это ${k} + ${k}. Сколько будет ${k} + ${k}?`;
+    case 3: return `${k}×3 — это ${k}×2 + ${k} = ${k*2} + ${k}. Сколько это?`;
+    case 4: return `${k}×4 — удвой дважды: ${k}×2 = ${k*2}, а ${k*2}×2 = ?`;
+    case 5: return `${k}×5 — половина от ${k}×10. ${k}×10 = ${k*10}, а половина — ?`;
+    case 6: return `${k}×6 — это ${k}×5 + ${k} = ${k*5} + ${k}. Сколько это?`;
+    case 7: return `${k}×7 — это ${k}×5 + ${k}×2 = ${k*5} + ${k*2}. Сколько это?`;
+    case 8: return `${k}×8 — это ${k}×10 − ${k}×2 = ${k*10} − ${k*2}. Сколько это?`;
+    case 9: return `${k}×9 — это ${k}×10 − ${k} = ${k*10} − ${k}. Сколько это?`;
+    case 10: return `${k}×10 — просто припиши ноль к ${k}!`;
+  }
+  return `Попробуй по шагам: ${a}×${b} = ${a}×${b-1} + ${a}.`;
+}
+
+/* =====================================================================
+   ЭКРАН ВОПРОСА (универсальный движок ввода ответа)
+   opts: {a, b, phase, minimal, paper, context, onDone(ok, ms, attempts), headerHtml, hint}
+   ===================================================================== */
+let quizState=null, quizTimer=null;
+function clearQuizTimer(){ if(quizTimer){ clearInterval(quizTimer); quizTimer=null; } }
+function askFact(opts){
+  quizState = {input:"", start:Date.now(), attempts:0, hinted:false, opts};
+  drawQuiz();
+}
+/* обратный отсчёт для режима Мастера: истёк — ответ засчитан как неверный */
+function startQuizTimer(sec){
+  clearQuizTimer();
+  const t0=Date.now();
+  quizTimer=setInterval(()=>{
+    if(!quizState){ clearQuizTimer(); return; }
+    const frac=Math.max(0, 1 - (Date.now()-t0)/(sec*1000));
+    const fill=document.getElementById("qtimerfill");
+    if(fill) fill.style.width=(frac*100)+"%";
+    if(frac<=0){ clearQuizTimer(); sndBad(); finishQuiz(false, sec*1000, quizState.attempts||1, true); }
+  }, 80);
+}
+function finishQuiz(ok, ms, attempts, timedOut){
+  clearQuizTimer();
+  const st=quizState; quizState=null;
+  setTimeout(()=>{
+    if(!st.opts.paper) document.body.classList.remove("paper");
+    st.opts.onDone(ok, ms, attempts, timedOut);
+  }, ok?350:200);
+}
+function drawQuiz(hintText, wrong){
+  const {a,b,phase,paper,headerHtml} = quizState.opts;
+  const phaseNames={1:"Фаза 1 · Знакомство",2:"Фаза 2 · Ритм",3:"Фаза 3 · Действие",4:"Фаза 4 · Извлечение"};
+  document.body.classList.toggle("paper", !!paper);
+  render(`
+    <div class="topbar">
+      ${quizState.opts.onQuit?'<button class="btn small ghostb" onclick="quizQuit()">✕</button>':""}
+      ${paper?'<span class="chip">📝 Как в тетради</span>':`<span class="chip">✨ ${S.sparks}</span>`}
+      <span class="spacer"></span>
+      ${quizState.opts.progress?`<span class="chip">${quizState.opts.progress}</span>`:""}
+    </div>
+    ${headerHtml||""}
+    <div class="quiz-wrap">
+      ${phase && !paper ? `<div class="phase-tag">${phaseNames[phase]||""}</div>`:""}
+      <div class="equation ${paper?'plain':''} ${wrong?'shake':''}" id="eq">
+        ${a} × ${b} = <span class="ans" id="ansbox">${quizState.input||"&nbsp;"}</span>
+      </div>
+      ${quizState.opts.timer?`<div class="qtimer noprint"><div id="qtimerfill"></div></div>`:""}
+      ${hintText?`<div class="hintbox">💡 ${hintText}</div>`:""}
+      <div class="numpad">
+        ${[1,2,3,4,5,6,7,8,9].map(d=>`<button onclick="numTap(${d})">${d}</button>`).join("")}
+        <button class="del" onclick="numDel()">⌫</button>
+        <button onclick="numTap(0)">0</button>
+        <button class="ok" onclick="numOk()">✓</button>
+      </div>
+    </div>
+  `);
+  if(quizState.opts.timer && !quizTimer) startQuizTimer(quizState.opts.timer);
+}
+window.numTap = d=>{
+  if(!quizState) return;
+  if(quizState.input.length>=3) return;
+  quizState.input += d;
+  document.getElementById("ansbox").textContent = quizState.input;
+};
+window.numDel = ()=>{
+  if(!quizState) return;
+  quizState.input = quizState.input.slice(0,-1);
+  document.getElementById("ansbox").innerHTML = quizState.input||"&nbsp;";
+};
+window.numOk = ()=>{
+  if(!quizState || quizState.input==="") return;
+  const {a,b} = quizState.opts;
+  const val=parseInt(quizState.input,10);
+  quizState.attempts++;
+  const ms=Date.now()-quizState.start;
+  const correct = val===a*b;
+  // Режим Мастера: один выстрел — ответ окончателен, без подсказки и показа ответа
+  if(quizState.opts.oneShot){
+    const eq=document.getElementById("eq");
+    if(correct){ sndGood(); if(eq) eq.classList.add("pop"); }
+    else { sndBad(); if(eq) eq.classList.add("shake"); }
+    finishQuiz(correct, ms, quizState.attempts);
+    return;
+  }
+  if(correct){
+    sndGood();
+    const eq=document.getElementById("eq"); if(eq) eq.classList.add("pop");
+    finishQuiz(quizState.attempts===1, ms, quizState.attempts); // ok = верно с первой попытки
+  }else{
+    sndBad();
+    quizState.input="";
+    if(quizState.attempts===1 && !quizState.opts.noHint){
+      drawQuiz(quizState.opts.hint || hintFor(a,b), true);
+    }else if(quizState.attempts>=2){
+      // после 2-й ошибки — показать ответ и попросить повторить его (achievable step)
+      drawQuiz(`Ответ: <b>${a} × ${b} = ${a*b}</b>. Набери его — и врата это запомнят.`, true);
+    }else{
+      drawQuiz(null, true);
+    }
+  }
+};
+window.quizQuit = ()=>{
+  if(!quizState) return;
+  const quit=quizState.opts.onQuit;
+  quizState=null;
+  clearQuizTimer();
+  document.body.classList.remove("paper");
+  if(quit) quit();
+};
+document.addEventListener("keydown", e=>{
+  if(quizState){
+    if(e.key>="0" && e.key<="9") numTap(+e.key);
+    else if(e.key==="Backspace") numDel();
+    else if(e.key==="Enter"){ e.preventDefault(); numOk(); } // Enter = отправить, не «клик» по фокусу
+    return;
+  }
+  // активация div-кнопок (врата, земли, плитки, лавка) с клавиатуры
+  if((e.key==="Enter"||e.key===" ") && e.target && e.target.closest){
+    const el=e.target.closest('[role="button"]');
+    if(el){ e.preventDefault(); el.click(); }
+  }
+});
+
+/* Сцена «Знакомство»: группы точек (dual coding, субитизация по 5) */
+function dotsScene(a,b){
+  let rows="";
+  for(let i=0;i<a;i++){
+    let grp="", dots="";
+    for(let j=1;j<=b;j++){
+      dots+=`<div class="dot"></div>`;
+      if(j%5===0 || j===b){ grp+=`<div class="dotgrp">${dots}</div>`; dots=""; }
+    }
+    rows+=`<div class="dotrow">${grp}</div>`;
+  }
+  return `<div class="dots">${rows}</div>`;
+}
+
+/* =====================================================================
+   ВСТУПЛЕНИЕ: Врата Пустоты и Зеркала — GDD §4.1
+   ===================================================================== */
+/* Экран «Кто играет?» — выбор ребёнка (у каждого свой прогресс) */
+window.showPlayerPick = ()=>{
+  document.body.classList.remove("paper");
+  const reg = loadRegistry();
+  if(!reg.players.length){ return showAddPlayer(true); }
+  // последний игравший — первым, для быстрого тапа
+  const list = [...reg.players].sort((a,b)=> (a.id===reg.current?-1:0) - (b.id===reg.current?-1:0));
+  render(`
+    <div class="quiz-wrap center col" style="gap:18px; justify-content:center;">
+      <div style="font-size:56px;">👋</div>
+      <h1>Кто играет?</h1>
+      <div class="players">
+        ${list.map(p=>`<button class="player-tile ${p.id===reg.current?"cur":""}" onclick="selectPlayer('${p.id}')">
+          <span class="pemoji">${p.emoji}</span><span class="pname">${esc(p.name)}</span></button>`).join("")}
+        <button class="player-tile add" onclick="showAddPlayer()"><span class="pemoji">＋</span><span class="pname">Добавить</span></button>
+      </div>
+      <button class="btn ghostb small" onclick="showParentGate('players')">⚙️ Взрослым: управлять профилями</button>
+    </div>
+  `);
+};
+let addSel = "🦊";
+window.showAddPlayer = (first)=>{
+  addSel = PLAYER_EMOJI[Math.floor(Math.random()*PLAYER_EMOJI.length)];
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px; justify-content:center;">
+      <div style="font-size:52px;" id="addPreview">${addSel}</div>
+      <h2>${first?"Давай знакомиться!":"Новый Хранитель"}</h2>
+      <p class="muted">Как тебя зовут?</p>
+      <input id="pname" maxlength="16" placeholder="Имя" autocomplete="off"
+        style="font-size:22px; padding:12px 14px; width:min(280px,80vw); text-align:center; border-radius:14px; border:1px solid #ffffff33; background:var(--card2); color:var(--text);">
+      <p class="muted" style="font-size:14px;">Выбери значок:</p>
+      <div class="emoji-pick">
+        ${PLAYER_EMOJI.map(e=>`<button class="ebtn ${e===addSel?"on":""}" onclick="pickEmoji('${e}')">${e}</button>`).join("")}
+      </div>
+      <button class="btn primary big" onclick="confirmAddPlayer()">🚪 В путь!</button>
+      ${first?"":`<button class="btn ghostb small" onclick="showPlayerPick()">Назад</button>`}
+    </div>
+  `);
+  setTimeout(()=>{const el=document.getElementById("pname"); el&&el.focus();},60);
+};
+window.pickEmoji = e=>{
+  addSel = e;
+  const pv=document.getElementById("addPreview"); if(pv) pv.textContent=e;
+  document.querySelectorAll(".emoji-pick .ebtn").forEach(b=>b.classList.toggle("on", b.textContent===e));
+};
+window.confirmAddPlayer = ()=>{
+  const nm = (document.getElementById("pname").value||"").trim() || "Хранитель";
+  createPlayer(nm, addSel);
+};
+function showTitle(){
+  applyBodyModes();
+  const who = curPlayer ? `<div class="row" style="justify-content:center; gap:8px;"><span class="chip">${curPlayer.emoji} ${esc(curPlayer.name)}</span><button class="btn ghostb small" onclick="showPlayerPick()">👥 Сменить</button></div>` : "";
+  render(`
+    <div class="quiz-wrap center col" style="gap:20px;">
+      <div style="font-size:74px;">🗝️✨</div>
+      <h1>Хранители Числовых Врат</h1>
+      ${who}
+      <p class="muted" style="max-width:420px; margin:0 auto;">
+        Мир Арифметика погас: Хаос Забвения запер 55 Числовых Врат.
+        Каждый пример — дверь. Каждый ответ — удар молота.
+      </p>
+      ${S.profile ? `
+        <button class="btn primary big" onclick="showMap()">Продолжить путь</button>
+        <button class="btn ghostb small" onclick="showProfilePick()">Сменить профиль</button>
+      `:`
+        <button class="btn primary big" onclick="showProfilePick()">Начать путь Хранителя</button>
+      `}
+    </div>
+  `);
+}
+window.showProfilePick = ()=>{
+  render(`
+    <div class="quiz-wrap col" style="gap:14px; justify-content:center;">
+      <h2 class="center">Кто ты, Хранитель?</h2>
+      <p class="muted center">Выбери, с чего начать путь. Взрослый может изменить это в Панели Магистра.</p>
+      <button class="btn big" onclick="pickProfile('y7')">🌱 Я только знакомлюсь с умножением</button>
+      <button class="btn big" onclick="startPlacement()">🎓 Я уже кое-что знаю — пропустить выученное</button>
+      <button class="btn big" onclick="pickProfile('mast')">🗡️ Мне больше 10 — режим Мастера (сложнее)</button>
+      <button class="btn big" onclick="startDiag()">🧪 Не уверен — проверь меня</button>
+      <button class="btn ghostb" onclick="showParentGate('menu')">⚙️ Я взрослый — настроить профиль</button>
+    </div>
+  `);
+};
+window.pickProfile = p=>{
+  S.profile=p;
+  if(p==="anx"||p==="dys") S.settings.calm=true;
+  if(p==="adhd") S.settings.static=true;
+  save(); applyBodyModes();
+  S.introDone ? showMap() : introStep(0);
+};
+
+/* Диагностический тест — GDD §3: 5 примеров на точность и скорость → автопрофиль */
+let diag=null;
+window.startDiag = ()=>{
+  diag={qs:[[2,3],[3,4],[2,6],[4,5],[6,7]], i:0, ok:0, times:[]};
+  diagNext();
+};
+window.diagNext = ()=>{
+  if(!diag) return;
+  if(diag.i>=diag.qs.length){
+    const avg=diag.times.reduce((s,t)=>s+t,0)/diag.times.length;
+    const okCnt=diag.ok, rec = okCnt>=4 && avg<5000 ? "y9" : "y7";
+    diag=null;
+    render(`
+      <div class="quiz-wrap center col" style="gap:14px;">
+        <div style="font-size:56px;">🧙‍♂️</div>
+        <h2>Проверка пройдена!</h2>
+        <p class="muted">Верных: ${okCnt} из 5 · среднее время: ${(avg/1000).toFixed(1)} сек</p>
+        <p class="lore">«${rec==="y9"?"Ты быстр и точен. Пойдём бодрым шагом":"Начнём спокойным шагом — так знания держатся крепче"}» — Магистр.</p>
+        <button class="btn primary big" onclick="pickProfile('${rec}')">Профиль «${PROFILES[rec].label}» — вперёд!</button>
+        <button class="btn ghostb small" onclick="showProfilePick()">Выбрать самому</button>
+        ${okCnt<=2?`<p class="muted" style="font-size:13px; max-width:400px; margin:0 auto;">Взрослому: если счёт даётся трудно, загляните в Панель Магистра — там есть профиль «Особый темп» с мягким режимом.</p>`:""}
+      </div>`);
+    return;
+  }
+  const [a,b]=diag.qs[diag.i];
+  askFact({
+    a,b, noHint:true,
+    onQuit:()=>{ diag=null; showProfilePick(); },
+    progress:`${diag.i+1} / 5`,
+    headerHtml:`<div class="center muted" style="font-size:13.5px;">Проверка Магистра — просто отвечай, как получается</div>`,
+    onDone:(ok,ms,att)=>{ if(ok&&att===1) diag.ok++; diag.times.push(ms); diag.i++; diagNext(); },
+  });
+};
+
+/* =====================================================================
+   ИСПЫТАНИЕ НА ЗНАНИЕ: ребёнок отмечает выученные таблицы, Магистр
+   проверяет их и открывает — чтобы знаток шёл сразу к невыученным.
+   ===================================================================== */
+let placement=null;
+window.startPlacement = (fromMap)=>{
+  placement={picked:new Set(), fromMap:!!fromMap};
+  drawPlacementPick();
+};
+function drawPlacementPick(){
+  const chips=[];
+  for(let n=2;n<=10;n++){
+    const on=placement.picked.has(n);
+    chips.push(`<button class="btn ${on?"primary":"ghostb"}" style="min-width:64px;" onclick="placeToggle(${n})">×${n}${on?" ✓":""}</button>`);
+  }
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px; justify-content:center;">
+      <div style="font-size:52px;">🎓</div>
+      <h2>Что ты уже умеешь?</h2>
+      <p class="muted" style="max-width:440px; margin:0 auto;">Отметь таблицы, которые уже знаешь. Магистр коротко проверит их —
+      и откроет, чтобы ты не тратил время на выученное, а шёл сразу к трудному.</p>
+      <div class="row" style="flex-wrap:wrap; gap:8px; justify-content:center; max-width:380px;">${chips.join("")}</div>
+      <button class="btn primary big" onclick="placeVerifyStart()" ${placement.picked.size?"":"disabled"}>Проверь меня, Магистр</button>
+      <button class="btn ghostb small" onclick="${placement.fromMap?"placeCancel()":"showProfilePick()"}">${placement.fromMap?"Отмена":"Я лучше начну с начала"}</button>
+    </div>
+  `);
+}
+window.placeToggle = n=>{ placement.picked.has(n)?placement.picked.delete(n):placement.picked.add(n); drawPlacementPick(); };
+window.placeCancel = ()=>{ placement=null; showMap(); };
+window.placeVerifyStart = ()=>{
+  if(!placement.picked.size) return;
+  if(!S.profile) S.profile="y9"; // знаток идёт бодрым темпом (взрослый может сменить)
+  // по 2 «трудных» факта на каждую отмеченную таблицу
+  const qs=[];
+  [...placement.picked].sort((a,b)=>a-b).forEach(n=>{
+    const ms=shuffle([4,6,7,8,9]).slice(0,2);
+    ms.forEach(m=>qs.push([n,m]));
+  });
+  placement.qs=qs; placement.i=0; placement.fail=new Set();
+  placeVerifyNext();
+};
+window.placeVerifyNext = ()=>{
+  if(!placement) return;
+  if(placement.i>=placement.qs.length){ return placeApply(); }
+  const [n,m]=placement.qs[placement.i];
+  const [x,y]=Math.random()<0.5?[n,m]:[m,n];
+  askFact({
+    a:x,b:y, noHint:true,
+    onQuit:()=>{ placement=null; showProfilePick(); },
+    progress:`${placement.i+1} / ${placement.qs.length}`,
+    headerHtml:`<div class="center muted" style="font-size:13.5px;">Испытание на знание — отвечай сам, без подсказок</div>`,
+    onDone:(ok,ms,att)=>{ if(!(ok&&att===1)) placement.fail.add(n); placement.i++; placeVerifyNext(); },
+  });
+};
+function placeApply(){
+  const passed=[...placement.picked].filter(n=>!placement.fail.has(n)).sort((a,b)=>a-b);
+  const failed=[...placement.picked].filter(n=>placement.fail.has(n)).sort((a,b)=>a-b);
+  S.introDone=true; S.allLandsOpen=true;
+  const now=Date.now();
+  passed.forEach(n=>{
+    for(let m=2;m<=10;m++){
+      const f=ensureFact(n,m);
+      if(f.reps===0){ // не трогаем уже честно открытые
+        f.reps=1; f.origin=n; f.box=2; f.last=now; f.due=now + SRS_DAYS[2]*DAY/srsMult();
+      }
+    }
+  });
+  save(); applyBodyModes();
+  if(passed.length) fireworks(16, true);
+  const remaining=LANDS.map(l=>l.n).filter(n=>landKeys(n).some(k=>{const f=S.facts[k]; return !f||f.reps===0;}));
+  placement=null;
+  render(`
+    <div class="quiz-wrap center col" style="gap:14px;">
+      <div style="font-size:52px;">🎓✨</div>
+      <h2>Магистр признал твои знания!</h2>
+      ${passed.length?`<p class="lore">Открыты как выученные: <b>${passed.map(n=>"×"+n).join(", ")}</b>. Они будут иногда возвращаться на повтор — чтобы не забылись.</p>`:""}
+      ${failed.length?`<p class="muted">Ещё стоит закрепить: <b>${failed.map(n=>"×"+n).join(", ")}</b> — тут пример-другой не дался. Начнём с них.</p>`:""}
+      ${remaining.length?`<p class="muted">Осталось выучить: <b>${remaining.map(n=>"×"+n).join(", ")}</b>. Карта открыта — иди прямо к ним!</p>`
+        :`<p class="muted">Ты открыл всю таблицу! Осталось одолеть боссов и пройти тест «Без магии».</p>`}
+      <button class="btn primary big" onclick="showMap()">На карту мира</button>
+    </div>
+  `);
+}
+
+const INTRO=[
+  {
+    html:()=>`
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div style="font-size:60px;">🧙‍♂️</div>
+        <h2>Магистр Множитель</h2>
+        <p class="lore">«Приветствую, Хранитель. Прежде чем идти к Вратам — два закона мира.
+        Их не нужно запоминать. Они просто есть. Как гравитация».</p>
+        <button class="btn primary" onclick="introStep(1)">Слушаю, Магистр</button>
+      </div>`
+  },
+  {
+    html:()=>`
+      <div class="quiz-wrap center col" style="gap:14px;">
+        <h2>⚫ Врата Пустоты</h2>
+        <div style="font-size:44px;"><span id="vanish">🍎🍎🍎🍎🍎</span> → 🕳️</div>
+        <p class="muted">Умножь на ноль — и ничего не останется.<br><b style="color:var(--text)">Любое число × 0 = 0</b></p>
+        <div class="equation" style="font-size:36px;">7 × 0 = <span class="ans" style="min-width:60px;">?</span></div>
+        <div class="row" style="justify-content:center; gap:10px;">
+          <button class="btn" onclick="introZero(7)">7</button>
+          <button class="btn" onclick="introZero(0)">0</button>
+          <button class="btn" onclick="introZero(70)">70</button>
+        </div>
+      </div>`
+  },
+  {
+    html:()=>`
+      <div class="quiz-wrap center col" style="gap:14px;">
+        <h2>🪞 Зеркальные Врата</h2>
+        <div style="font-size:44px;">🦊 → 🪞 → 🦊</div>
+        <p class="muted">Умножь на один — и всё останется собой.<br><b style="color:var(--text)">Любое число × 1 = само число</b></p>
+        <div class="equation" style="font-size:36px;">9 × 1 = <span class="ans" style="min-width:60px;">?</span></div>
+        <div class="row" style="justify-content:center; gap:10px;">
+          <button class="btn" onclick="introOne(1)">1</button>
+          <button class="btn" onclick="introOne(10)">10</button>
+          <button class="btn" onclick="introOne(9)">9</button>
+        </div>
+      </div>`
+  },
+  {
+    html:()=>`
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div style="font-size:60px;">🗺️</div>
+        <h2>Девять земель ждут</h2>
+        <p class="lore">«Смотри: всего врат — сто. Но врата-близнецы едины: 3×7 и 7×3 — одна дверь,
+        просто с двух сторон. Тебе нужно открыть не 100 дверей, а 55. И десять зеркальных ты уже знаешь».</p>
+        <p class="muted">Идём. Там, где начинается настоящая работа.</p>
+        <button class="btn primary big" onclick="finishIntro()">На карту мира!</button>
+      </div>`
+  },
+];
+window.introStep = i=>{ render(INTRO[i].html()); };
+window.introZero = v=>{
+  if(v===0){ sndGood(); toast("Верно! Всё исчезло в Пустоте. ✔"); introStep(2); }
+  else { sndBad(); toast("Хм… Пустота забирает всё. Попробуй ещё."); }
+};
+window.introOne = v=>{
+  if(v===9){ sndGood(); toast("Верно! Зеркало ничего не меняет. ✔"); introStep(3); }
+  else { sndBad(); toast("Зеркало отражает без изменений. Попробуй ещё."); }
+};
+window.finishIntro = ()=>{
+  S.introDone=true; S.sparks+=10; save();
+  fireworks(); sndWin();
+  showMap();
+};
+
+/* =====================================================================
+   КАРТА МИРА
+   ===================================================================== */
+function agentLand(){
+  // «Агент Хаоса» — земля с наибольшим числом призрачных врат
+  let best=null, bestCnt=0;
+  for(const l of LANDS){
+    const c=landDueCount(l.n);
+    if(c>bestCnt){ bestCnt=c; best=l.n; }
+  }
+  return bestCnt>0 ? best : null;
+}
+function newSessionCheck(){
+  const today=new Date().toDateString();
+  if(S.sessionDay!==today){
+    const yesterday=new Date(Date.now()-DAY).toDateString();
+    // серия только растёт: пропуск не «сжигает» её со стыдом, а начинает заново
+    S.streak.days = S.streak.last===yesterday ? S.streak.days+1 : 1;
+    S.streak.last=today;
+    S.sessionDay=today; S.portalsThisSession=0; S.newToday=0; save();
+  }
+}
+window.showMap = ()=>{
+  applyBodyModes(); document.body.classList.remove("paper");
+  newSessionCheck();
+  const agent=agentLand();
+  const dueTotal=Object.values(S.facts).filter(f=>isDue(f)).length;
+  const gear=S.items.map(id=>{const it=SHOP.find(s=>s.id===id); return it?it.icon:"";}).join(" ");
+  const lastArt=ARTIFACTS.filter(a=>S.artifacts.includes(a.id)).pop();
+  const showStreak=S.streak.days>=2 && S.profile!=="anx";
+  const sticky=stickyFacts();
+  const portalMax = S.settings.portalMax!=null ? S.settings.portalMax : prof().portalMax;
+  const showPortal = S.portalsThisSession < portalMax && totalOpen()>=13 && Math.random()<0.75;
+  const bossesDone = Object.keys(S.bossDone).length;
+  const noMagicOpen = bossesDone>=3;
+  const mst=magicStage();
+  const lastNM=S.noMagicResults.length?S.noMagicResults[S.noMagicResults.length-1]:null;
+  const nmToday=lastNM && new Date(lastNM.ts).toDateString()===new Date().toDateString();
+  const nudgeNM = mst>=2 && mst<4 && noMagicOpen && !nmToday;
+  const tiles = LANDS.map(l=>{
+    const open=landOpenCount(l.n), total=landKeys(l.n).length;
+    const unlocked=landUnlocked(l.n);
+    const done=S.bossDone[l.n] || (l.n===10 && S.chaosDone);
+    const due=landDueCount(l.n);
+    return `
+      <div class="land-tile ${unlocked?"":"locked"} ${done?"done":""}" tabindex="0" role="button"
+           aria-label="${l.name}, таблица на ${l.n}, ${!unlocked?"заперта":done?"пройдена":due>0?due+" врат шепчут":"открыто "+open+" из "+total+" врат"}"
+           style="background:linear-gradient(160deg, ${l.color}cc, ${l.color}55);"
+           onclick="${unlocked?`showLand(${l.n})`:`lockedLand(${l.n})`}">
+        ${agent===l.n?'<div class="agent" title="Агент Хаоса!">🌀</div>':""}
+        <div class="lnum">×${l.n}</div>
+        <div class="lname">${l.icon} ${l.name}</div>
+        <div class="lprog">${unlocked? (due>0?`👻 ${due} шепчут`:`${open}/${total} врат`) : "🔒"}</div>
+      </div>`;
+  }).join("");
+  render(`
+    <div class="topbar">
+      <span class="chip">✨ ${S.sparks}</span>
+      <span class="chip">🧩 ${S.frescoCells.length}/100</span>
+      <span class="spacer"></span>
+      <span class="chip">🚪 ${totalOpen()}/55</span>
+    </div>
+    <div class="row" style="margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+      <button class="chip" style="cursor:pointer; font-family:inherit; border:1px solid #ffffff14;" onclick="showPlayerPick()" title="Сменить игрока">${curPlayer?curPlayer.emoji+" "+esc(curPlayer.name):"🧙 Хранитель"}${gear?" "+gear:""}</button>
+      ${lastArt?`<span class="chip">🏅 «${esc(lastArt.title)}»</span>`:""}
+      ${showStreak?`<span class="chip">🔥 на посту ${S.streak.days} дн.</span>`:""}
+    </div>
+    ${dueTotal>0?`<button class="banner" style="margin-bottom:12px; display:block; width:100%; text-align:left; cursor:pointer; font-family:inherit; color:var(--text);" onclick="startReview()">
+      🌀 Врата шепчут: <b>${dueTotal}</b>${agent?` · Агент Хаоса в «${esc(landOf(agent).name)}»`:""} — <b>⚡ Отразить угрозу!</b></button>`:""}
+    ${showPortal?`<button class="banner portal-btn" style="margin-bottom:12px; display:block; width:100%; text-align:left; cursor:pointer; font-family:inherit; color:#e9d5ff;" onclick="startPortal()">
+      🌀 <b>Портал Хаоса открылся!</b> Блиц из разных земель — двойные искры и осколок лора.</button>`:""}
+    ${nudgeNM?`<button class="banner" style="margin-bottom:12px; display:block; width:100%; text-align:left; cursor:pointer; font-family:inherit; color:var(--text); background:linear-gradient(90deg,#4a4458cc,#6b6272cc); border-color:#c9c3d6aa;" onclick="startNoMagic(10)">
+      🕯️ Магия тает — и это хорошо: ты становишься сильнее её. Попробуй сегодня <b>«Без магии»</b>.</button>`:""}
+    ${mst>=4?`<p class="lore" style="margin-bottom:12px;">«Мир помнит себя. Магия больше не нужна — но врата всегда открыты для тебя» — Магистр.</p>`:""}
+    <div class="lands">${tiles}</div>
+    <div class="map-actions">
+      <button class="btn" style="background:#243a52;" onclick="showTrainHub()">🎯 Тренировка</button>
+      <button class="btn" onclick="showForge()">⚒️ Кузница</button>
+      <button class="btn" onclick="showWorkshop()">🔬 Мастерская</button>
+      <button class="btn" onclick="showHall()">🏛️ Зал Славы</button>
+      <button class="btn ghostb" onclick="showParentGate('map')">⚙️ Панель Магистра</button>
+    </div>
+  `);
+};
+window.lockedLand = n=>{
+  const idx=LANDS.findIndex(l=>l.n===n);
+  toast(`🔒 Сначала открой все врата: <b>${esc(LANDS[idx-1].name)}</b>`);
+};
+
+/* =====================================================================
+   ОЧЕРЕДЬ ПОВТОРЕНИЙ: все шепчущие врата одной миссией (GDD §15)
+   ===================================================================== */
+let review=null;
+window.startReview = ()=>{
+  const due=Object.entries(S.facts).filter(([k,f])=>isDue(f))
+    .sort((a,b)=>a[1].due-b[1].due).map(([k])=>k).slice(0,8); // самые просроченные — первыми
+  if(!due.length){ toast("✨ Призраков нет — все врата сияют!"); return; }
+  review={qs:due, i:0};
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <div style="font-size:60px;">👻⚡</div>
+      <h2>Отрази агента Хаоса</h2>
+      <p class="muted" style="max-width:420px; margin:0 auto;">${due.length} врат шепчут из тумана.
+      Подзаряди их ответами — и агент отступит. Самые старые призраки дают осколки лора.</p>
+      <button class="btn primary big" onclick="reviewNext()">⚡ Начать</button>
+      <button class="btn ghostb small" onclick="showMap()">Позже</button>
+    </div>`);
+};
+window.reviewNext = ()=>{
+  if(!review) return;
+  if(review.i>=review.qs.length){
+    S.sparks+=10; save(); sndWin(); fireworks(16);
+    render(`
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div style="font-size:60px;">🛡️✨</div>
+        <h2>Агент Хаоса отступил!</h2>
+        <p class="muted">Врата снова сияют. +10 ✨ за дозор.</p>
+        <button class="btn primary" onclick="showMap()">На карту</button>
+      </div>`);
+    review=null; return;
+  }
+  const k=review.qs[review.i];
+  const {a,b}=parseKey(k);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  const phase=phaseFor(S.facts[k]);
+  const st=magicStage();
+  if(phase===2 && st<3) speak(`${MULT_ADV[x]||x} ${numWords(y)}?`);
+  askFact({
+    a:x,b:y, phase,
+    onQuit:()=>{ review=null; showMap(); },
+    progress:`${review.i+1} / ${review.qs.length}`,
+    headerHtml: phase===2 && st<3
+      ? `<div class="lore center" style="margin-bottom:4px;">🎵 «${MULT_ADV[x]||x} ${numWords(y)} — …?» Проговори вслух!</div>`
+      : st>=2 ? ""
+      : `<div class="center" style="font-size:26px; padding:4px;">👻</div>`,
+    // земля трудности — больший множитель, а не случайная ориентация показа (иначе трюки уходят не туда)
+    onDone:(ok,ms,att)=>afterAnswer(Math.max(x,y),Math.min(x,y),ok,ms,att, ()=>{ if(review){ review.i++; reviewNext(); } }),
+  });
+};
+
+/* =====================================================================
+   МАРАФОН: решить все примеры сразу, без ожидания призраков и порядка.
+   Обновляет память (SRS/статистику), верный ответ открывает врата.
+   ===================================================================== */
+let marathon=null;
+function allFactKeys(){
+  const set=new Set();
+  for(let n=2;n<=10;n++) for(let m=2;m<=10;m++) set.add(keyOf(n,m));
+  return [...set]; // 45 уникальных фактов
+}
+window.startMarathon = ()=>{
+  const chips=[];
+  for(let n=2;n<=10;n++) chips.push(`<button class="btn ghostb" style="min-width:60px;" onclick="marathonRun(${n})">×${n}</button>`);
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px; justify-content:center;">
+      <div style="font-size:52px;">🏃</div>
+      <h2>Марафон</h2>
+      <p class="muted" style="max-width:440px; margin:0 auto;">Реши примеры прямо сейчас — без ожидания, без сюжета и таймеров.
+      Верные ответы открывают врата и укрепляют память. Ошибся — Магистр подскажет.</p>
+      <button class="btn primary big" onclick="marathonRun(0)">Вся таблица · 45 примеров</button>
+      <p class="muted" style="font-size:13px;">или одна таблица:</p>
+      <div class="row" style="flex-wrap:wrap; gap:8px; justify-content:center; max-width:380px;">${chips.join("")}</div>
+      <button class="btn ghostb small" onclick="showMap()">На карту</button>
+    </div>
+  `);
+};
+window.marathonRun = table=>{
+  const keys = table? Array.from({length:9},(_,i)=>keyOf(table,i+2)) : allFactKeys();
+  marathon={qs:shuffle([...new Set(keys)]), i:0, ok:0, times:[], missed:[], table};
+  marathonNext();
+};
+window.marathonNext = ()=>{
+  if(!marathon) return;
+  if(marathon.i>=marathon.qs.length){
+    const {ok, qs, times, missed, table}=marathon;
+    const avg=times.length?times.reduce((s,t)=>s+t,0)/times.length/1000:0;
+    S.sparks += ok*2; save();
+    if(ok===qs.length && ok>0) fireworks(20, true);
+    marathon=null;
+    render(`
+      <div class="quiz-wrap center col" style="gap:14px;">
+        <div style="font-size:56px;">${ok===qs.length?"🏆":"🏁"}</div>
+        <h2>Марафон пройден!</h2>
+        <p class="muted">Верно с первой попытки: <b style="color:var(--text)">${ok} из ${qs.length}</b> · среднее время: ${avg.toFixed(1)} сек · +${ok*2} ✨</p>
+        ${missed.length?`<p class="muted">Стоит повторить: ${[...new Set(missed)].map(k=>{const{a,b}=parseKey(k);return `<b>${a}×${b}</b>`;}).join(", ")}</p>`:`<p class="lore">Ни одной ошибки — ты держишь всю таблицу!</p>`}
+        <div class="row" style="justify-content:center; gap:10px; flex-wrap:wrap;">
+          <button class="btn primary" onclick="marathonRun(${table})">Ещё раз</button>
+          ${missed.length?`<button class="btn" onclick="marathonMissed(${JSON.stringify([...new Set(missed)]).replace(/"/g,"&quot;")})">Только трудные (${[...new Set(missed)].length})</button>`:""}
+          <button class="btn ghostb" onclick="showMap()">На карту</button>
+        </div>
+      </div>
+    `);
+    return;
+  }
+  const {a,b}=parseKey(marathon.qs[marathon.i]);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  askFact({
+    a:x,b:y,
+    onQuit:()=>{ marathon=null; showMap(); },
+    progress:`${marathon.i+1} / ${marathon.qs.length}`,
+    headerHtml:`<div class="center" style="font-size:24px;">🏃</div>`,
+    onDone:(ok,ms,att)=>{
+      const k=keyOf(x,y);
+      const f=ensureFact(x,y);
+      const first=(f.reps===0);
+      f.reps++;
+      if(first) f.origin=Math.min(x,y);
+      if(ok&&att===1){ marathon.ok++; recTime(f,ms); }
+      else { f.errors++; marathon.missed.push(k); }
+      if(ms>5000) f.slowCnt++;
+      scheduleNext(f, ok&&att===1);
+      marathon.times.push(ms);
+      S.stats.answers++; if(ok&&att===1) S.stats.correct++;
+      save();
+      marathon.i++; marathonNext();
+    }
+  });
+};
+window.marathonMissed = keys=>{
+  marathon={qs:shuffle(keys), i:0, ok:0, times:[], missed:[], table:0};
+  marathonNext();
+};
+
+/* =====================================================================
+   ИСПЫТАНИЕ МАСТЕРА: жёсткий челлендж 10+ — один выстрел, на время,
+   3 жизни, реальный провал. Ответ не показывается до конца (отложенная
+   обратная связь). Desirable difficulty + testing effect (GDD §2).
+   ===================================================================== */
+let trial=null;
+const TRIAL_SEC=4, TRIAL_LEN=20, TRIAL_LIVES=3;
+window.startTrial = ()=>{
+  const opened=Object.entries(S.facts).filter(([k,f])=>f.reps>0).map(([k])=>k);
+  if(opened.length<10){ // испытание — только по уже открытым фактам, иначе это не вызов, а расстрел
+    render(`
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div style="font-size:52px;">🗡️</div>
+        <h2>Ещё рано для Испытания</h2>
+        <p class="muted" style="max-width:440px; margin:0 auto;">Испытание проверяет то, что ты уже знаешь, а открыто пока
+        только <b style="color:var(--text)">${opened.length}</b> врат. Пройди приключение или Марафон — и возвращайся за рангом Мастера.</p>
+        <button class="btn primary" onclick="showMap()">На карту</button>
+      </div>`);
+    return;
+  }
+  trial={qs:shuffle(opened).slice(0,TRIAL_LEN), i:0, lives:TRIAL_LIVES, ok:0, times:[], missed:[]};
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <div style="font-size:56px;">🗡️</div>
+      <h2>Испытание Мастера</h2>
+      <p class="muted" style="max-width:450px; margin:0 auto;">${trial.qs.length} примеров вперемешку. <b style="color:var(--text)">Один ответ на каждый</b>,
+      на время (${TRIAL_SEC} сек). Подсказок нет, ответ не покажут. Ошибка или промедление — минус жизнь.
+      Потеряешь <b style="color:var(--text)">все 3&nbsp;❤️</b> — испытание провалено.</p>
+      <p class="muted">Разбор ошибок — в конце. За прохождение — ранг Мастера.</p>
+      <button class="btn primary big" onclick="trialNext()">🗡️ Начать испытание</button>
+      <button class="btn ghostb small" onclick="showMap()">Не сейчас</button>
+    </div>
+  `);
+};
+function trialHearts(){ return "❤️".repeat(trial.lives)+"🖤".repeat(TRIAL_LIVES-trial.lives); }
+window.trialNext = ()=>{
+  if(!trial) return;
+  if(trial.lives<=0) return trialEnd(false);
+  if(trial.i>=trial.qs.length) return trialEnd(true);
+  const {a,b}=parseKey(trial.qs[trial.i]);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  askFact({
+    a:x,b:y, oneShot:true, timer:TRIAL_SEC, noHint:true,
+    onQuit:()=>{ trial=null; showMap(); },
+    progress:`${trial.i+1} / ${trial.qs.length}`,
+    headerHtml:`<div class="center" style="font-size:22px; letter-spacing:2px;">${trialHearts()}</div>`,
+    onDone:(ok,ms,att,timedOut)=>{
+      const f=ensureFact(x,y);
+      if(ok){
+        trial.ok++; f.reps++; recTime(f,ms); scheduleNext(f,true);
+      }else{
+        trial.lives--; trial.missed.push(keyOf(x,y));
+        // честно неверный ответ — знаниевая ошибка, кормит SRS/Уголок; таймаут — только скорость, не незнание
+        if(!timedOut){ f.reps++; f.errors++; scheduleNext(f,false); }
+      }
+      S.stats.answers++; if(ok) S.stats.correct++;
+      save();
+      if(!ok) toast(timedOut?"⏳ Время вышло! −1 ❤️":"✗ Мимо! −1 ❤️", 1200);
+      trial.i++; trialNext();
+    }
+  });
+};
+function trialEnd(passed){
+  const {ok, qs, times, missed, lives}=trial;
+  const avg=times.length?times.reduce((s,t)=>s+t,0)/times.length/1000:0;
+  let rank=0, rankName="", emblem="";
+  if(passed){
+    rank = (missed.length===0 && avg<2.5) ? 3 : missed.length<=2 ? 2 : 1;
+    [rankName,emblem]=[["Бронза","🥉"],["Серебро","🥈"],["Золото","🥇"]][rank-1];
+    S.sparks += [15,25,40][rank-1];
+    S.trialBest=Math.max(S.trialBest||0, rank);
+  }
+  let extra="";
+  if(rank===3 && !S.artifacts.includes("trial")){
+    S.artifacts.push("trial");
+    const a=ARTIFACTS.find(x=>x.id==="trial");
+    extra=`<p>🏆 Золото с первого раза! Артефакт: <b>${a.icon} ${esc(a.name)}</b><br><span class="muted">Титул: «${esc(a.title)}»</span></p>`;
+  }
+  save();
+  if(passed){ sndWin(); fireworks(20, true); } else sndBad();
+  const review = missed.length
+    ? `<div class="card" style="max-width:420px; margin:0 auto;"><b>Разбор — повтори это:</b><div class="row" style="flex-wrap:wrap; gap:8px; justify-content:center; margin-top:8px;">
+        ${[...new Set(missed)].map(k=>{const{a,b}=parseKey(k);return `<span class="chip">${a}×${b} = <b>${a*b}</b></span>`;}).join("")}</div></div>`
+    : "";
+  render(`
+    <div class="quiz-wrap center col" style="gap:14px;">
+      <div style="font-size:60px;">${passed?emblem:"🗡️💔"}</div>
+      <h2>${passed?`Ранг: ${rankName}!`:"Испытание не пройдено"}</h2>
+      <p class="muted">Верно: ${ok} из ${qs.length} · осталось ${trialHearts0(lives)} · среднее время: ${avg.toFixed(1)} сек${passed?` · +${[15,25,40][rank-1]} ✨`:""}</p>
+      ${passed?"":`<p class="muted">Кончились жизни. Это честный проигрыш — в этом и вызов. Разбери ошибки и вернись сильнее.</p>`}
+      ${extra}
+      ${review}
+      <div class="row" style="justify-content:center; gap:10px; flex-wrap:wrap;">
+        <button class="btn primary" onclick="startTrial()">🗡️ Ещё раз</button>
+        <button class="btn ghostb" onclick="showMap()">На карту</button>
+      </div>
+    </div>
+  `);
+  trial=null;
+}
+function trialHearts0(l){ return "❤️".repeat(Math.max(0,l))+"🖤".repeat(TRIAL_LIVES-Math.max(0,l)); }
+
+/* =====================================================================
+   ЗЕМЛЯ: врата
+   ===================================================================== */
+window.showLand = n=>{
+  const L=landOf(n);
+  const keys=landKeys(n);
+  const allOpen = keys.every(k=>{const f=S.facts[k]; return f&&f.reps>0;});
+  const bossReady = allOpen && !S.bossDone[n];
+  const finalReady = n===10 && allOpen && !S.chaosDone && LANDS.slice(0,8).every(l=>S.bossDone[l.n]);
+  const bossBeaten = S.bossDone[n] || (n===10 && S.chaosDone);
+  const blitzOk = bossBeaten && !(S.settings.calm || prof().calm); // спокойные профили — без таймеров (GDD §12)
+  const gates = [1,...Array.from({length:9},(_,i)=>i+2)].map(m=>{
+    const k=keyOf(n,m);
+    if(m===1){
+      return `<div class="gate open" tabindex="0" role="button" aria-label="Зеркальные врата ${n} на 1, открыты" style="--landGlow:${L.color}66" onclick="toast('🪞 Зеркальные врата: ${n}×1 = ${n}. Ты знал это с самого начала!')">
+        <div class="glabel">${n}×1</div><div class="gsub">зеркало</div></div>`;
+    }
+    const f=S.facts[k];
+    const opened=f&&f.reps>0;
+    const twin = opened && (f.origin!=null ? f.origin!==n : Math.min(n,m)!==n); // открыто из другой земли
+    const gl=ghostLevel(f);
+    const cls = opened ? `open ${gl?`due${gl}`:""} ${twin?"twin":""}` : "locked";
+    const sub = !opened ? "заперто" : gl>=3 ? "призрак…" : gl>0 ? "шепчет" : (twin?"близнец":"открыто");
+    return `<div class="gate ${cls}" tabindex="0" role="button" aria-label="Врата ${n} на ${m}, ${sub}" style="--landGlow:${L.color}66" onclick="gateTap(${n},${m})">
+      <div class="glabel">${n}×${m}</div><div class="gsub">${sub}</div></div>`;
+  }).join("");
+  render(`
+    <div class="topbar">
+      <button class="btn small ghostb" onclick="showMap()">← Карта</button>
+      <span class="spacer"></span>
+      ${keys.some(k=>{const f=S.facts[k]; return !f||f.reps===0;})?`<span class="chip">🆕 сегодня: ${Math.min(S.newToday,prof().newPerTrip)}/${prof().newPerTrip}</span>`:""}
+      <span class="chip">✨ ${S.sparks}</span>
+    </div>
+    <h2 style="color:${L.color}; text-shadow:0 0 12px ${L.color}55;">${L.icon} ${esc(L.name)}</h2>
+    <p class="muted" style="margin:6px 0 14px;">Таблица ×${n}. Врата-близнецы уже открыты с другой стороны — просто посмотри на них.</p>
+    <div class="gates">${gates}</div>
+    <div class="card boss-card" style="border-color:${L.color}66;">
+      <div class="boss-head">
+        <div class="boss-emoji" style="--landGlow:${L.color}aa;">${L.bossIcon}</div>
+        <div class="grow">
+          <h3>${esc(L.boss)}</h3>
+          <div class="muted" style="font-size:13.5px;">${allOpen? (S.bossDone[n]||S.chaosDone&&n===10?"Побеждён! Земля свободна. 👑":"Стережёт выход из земли…") : "Появится, когда все врата открыты."}</div>
+        </div>
+        ${finalReady?`<button class="btn primary" onclick="startChaos()">⚔️ Финальный бой!</button>`
+          : bossReady&&n!==10?`<button class="btn primary" onclick="startBoss(${n})">⚔️ В бой!</button>`
+          : bossReady&&n===10?`<button class="btn" onclick="toast('Хаос ждёт, когда падут все восемь боссов…')">🌀</button>`
+          : blitzOk?`<button class="btn" style="background:linear-gradient(135deg,#3b2f0e,#5b4a14); border:1px solid #ffd16655;" onclick="startBlitz(${n})">⚡ Бой-молния${S.blitzDone[n]?` · ${S.blitzDone[n]}`:""}</button>`:""}
+      </div>
+    </div>
+    ${S.tricksShown[n]?`<div class="hintbox" style="margin-top:12px;">🧙‍♂️ ${esc(L.trick)}</div>`:""}
+  `);
+};
+window.gateTap = (n,m)=>{
+  const f=fact(n,m);
+  if(f && f.reps>0 && !isDue(f)){
+    toast(`✨ Врата сияют: <b>${n}×${m} = ${n*m}</b>`);
+    return;
+  }
+  if((!f || f.reps===0) && S.newToday>=prof().newPerTrip){
+    toast("🧙‍♂️ «На сегодня новых врат хватит — мозгу нужен сон, чтобы их запомнить. Повтори шепчущие или возвращайся завтра»", 3200);
+    return;
+  }
+  startGateFlow(n,m);
+};
+
+/* Поток одного врат: фазы — GDD §5 */
+function startGateFlow(n,m){
+  const f=ensureFact(n,m);
+  const L=landOf(n);
+  if(f.reps===0){
+    // Фаза 1: Знакомство — статичная сцена, тихо, 1 канал
+    render(`
+      <div class="topbar"><button class="btn small ghostb" onclick="showLand(${n})">← Назад</button></div>
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div class="phase-tag">Фаза 1 · Знакомство</div>
+        <div class="scene">
+          ${dotsScene(Math.min(n,m),Math.max(n,m))}
+          <div class="equation" style="font-size:40px;">${n} × ${m} = <b style="color:var(--accent)">${n*m}</b></div>
+          <p class="muted">${Math.min(n,m)} ряд${Math.min(n,m)>=5?"ов":Math.min(n,m)>1?"а":""} по ${Math.max(n,m)} — всего ${n*m}. Запомни картину.</p>
+        </div>
+        <button class="btn primary big" onclick="gatePhase2(${n},${m})">Теперь я сам!</button>
+      </div>
+    `);
+  }else{
+    // Повторение: фаза привязана к реально прошедшему времени (GDD §5)
+    const phase = phaseFor(f);
+    const st=magicStage();
+    if(phase===2 && st<3) speak(`${MULT_ADV[n]||n} ${numWords(m)}?`);
+    askFact({
+      a:n, b:m, phase,
+      onQuit:()=>showLand(n),
+      headerHtml: phase===2 && st<3
+        ? `<div class="lore center" style="margin-bottom:4px;">🎵 «${MULT_ADV[n]||n} ${numWords(m)} — …?» Проговори вслух и добей ритм числом!</div>`
+        : st>=2 ? ""
+        : `<div class="center" style="font-size:26px; padding:4px;">${L.icon}</div>`,
+      onDone:(ok,ms,att)=>afterAnswer(n,m,ok,ms,att, ()=>{
+        if(phase===2){ speak(mantra(n,m)); toast(`🎵 «${mantra(n,m)}»`, 2600); }
+        showLand(n);
+      }),
+    });
+  }
+}
+window.gatePhase2 = (n,m)=>{
+  askFact({
+    a:n,b:m, phase:1, noHint:false,
+    onQuit:()=>showLand(n),
+    onDone:(ok,ms,att)=>{
+      const f=ensureFact(n,m);
+      f.reps=1; f.origin=n; scheduleNext(f, ok);
+      if(ok) recTime(f,ms);
+      S.sparks+=10; S.newToday++; openFresco(1);
+      S.stats.answers++; if(ok)S.stats.correct++;
+      if(!ok){ f.errors++; bumpLandErrors(n); }
+      save();
+      fireworks(10);
+      const [x,y]=[Math.min(n,m),Math.max(n,m)];
+      toast(x!==y?`🚪 Открыты сразу двое врат: <b>${x}×${y}</b> и <b>${y}×${x}</b> — это одна дверь! +10 ✨`
+                 :`🚪 Врата <b>${x}×${y}</b> открыты! +10 ✨`, 2800);
+      maybeTrick(n, ()=>showLand(n));
+    }
+  });
+};
+
+/* Обработка ответа при повторении */
+function afterAnswer(n,m,ok,ms,attempts, next){
+  const f=ensureFact(n,m);
+  const wasBox=f.box;
+  const prevLast=f.last; // до scheduleNext, который перезапишет last
+  f.reps++;
+  if(ms>5000) f.slowCnt++;
+  if(ok) recTime(f,ms); // автоматизация — время верного ответа с первой попытки
+  if(!ok){ f.errors++; bumpLandErrors(n); }
+  scheduleNext(f, ok);
+  S.stats.answers++; if(ok)S.stats.correct++;
+  // Асимметричная награда — GDD §6.3: осколок за повторение через 7+ реальных дней
+  const longGap = prevLast && (Date.now()-prevLast) >= 7*DAY/srsMult();
+  if(ok){
+    if(longGap){
+      const lore=grantShard();
+      S.sparks+=5;
+      toast(`🧩 Осколок лора: <i>«${esc(lore)}»</i> +5 ✨`, 3400);
+    }else{
+      S.sparks += wasBox<=1 ? 3 : 5;
+      toast(`✔ Верно! +${wasBox<=1?3:5} ✨`);
+    }
+  }else{
+    S.sparks+=1;
+    toast("Ты добрался до ответа — это тоже победа. +1 ✨ за упорство");
+  }
+  save();
+  maybeTrick(n, next);
+}
+function bumpLandErrors(n){
+  S.landErrors[n]=(S.landErrors[n]||0)+1;
+}
+/* Just-in-time трюки — GDD §7.4 */
+function maybeTrick(n, next){
+  const L=landOf(n);
+  const need = n===9?3:2;
+  if(!S.tricksShown[n] && (S.landErrors[n]||0)>=need && n>=4){
+    S.tricksShown[n]=true; save();
+    render(`
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div style="font-size:56px;">🧙‍♂️</div>
+        <h2>Магистр Множитель шепчет приём</h2>
+        <div class="hintbox" style="font-size:18px;">${esc(L.trick)}</div>
+        <p class="muted">Этот приём теперь всегда в Мастерской.</p>
+        <button class="btn primary big" id="trickNext">Понял! Дальше</button>
+      </div>
+    `);
+    document.getElementById("trickNext").onclick = next;
+  }else next();
+}
+
+/* =====================================================================
+   БОСС ЗЕМЛИ — GDD §7
+   ===================================================================== */
+let boss=null;
+window.startBoss = n=>{
+  const L=landOf(n);
+  let [total,need,allowed] = (prof().softBoss ? BOSS_SOFT : BOSS_CFG[n]);
+  // трещины: слабые факты земли в приоритете
+  const keys=shuffle(landKeys(n));
+  keys.sort((a,b)=>((S.facts[b]?.errors||0)-(S.facts[a]?.errors||0)));
+  const picked=[];
+  while(picked.length<total) picked.push(...keys.slice(0, total-picked.length));
+  boss={n, total, need, allowed, cracks:picked.slice(0,total).map(k=>({k, state:"open"})),
+        idx:0, closed:0, failed:0, consecFail:0, flawless:true, bonus:false};
+  bossIntro(L);
+};
+function bossIntro(L){
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <div class="boss-emoji" style="font-size:80px; --landGlow:${L.color}aa;">${L.bossIcon}</div>
+      <h1>${esc(L.boss)}</h1>
+      <p class="muted" style="max-width:420px; margin:0 auto;">
+        На теле босса — ${boss.total} трещин с примерами. Закрой <b style="color:var(--text)">${boss.need}</b>,
+        чтобы победить. ${prof().hard
+          ? "⚔️ Режим Мастера: <b style=\"color:var(--text)\">один выстрел на трещину, на время</b>, без подсказок и без пощады."
+          : "Ошибка — не провал: босс сам подскажет путь."}
+      </p>
+      <button class="btn primary big" onclick="bossNext()">⚔️ Начать бой</button>
+      <button class="btn ghostb small" onclick="showLand(${boss.n})">Отступить</button>
+    </div>
+  `);
+}
+function bossCracksHtml(){
+  return `<div class="cracks">${boss.cracks.map((c,i)=>
+    `<div class="crack ${c.state==="closed"?"closed":c.state==="failed"?"failed":""} ${i===boss.idx&&c.state==="open"?"current":""}">
+      ${c.state==="closed"?"✔":c.state==="failed"?"✖":"⚡"}</div>`).join("")}</div>
+    <div class="bossbar"><div style="width:${boss.closed/boss.need*100}%"></div></div>`;
+}
+window.bossNext = ()=>{
+  if(!boss) return; // бой мог завершиться отступлением
+  const L=landOf(boss.n);
+  // конец?
+  const remaining = boss.cracks.filter(c=>c.state==="open").length;
+  if(remaining===0 || boss.failed>boss.allowed){
+    return bossEnd();
+  }
+  // адаптив: 2 подряд ошибки — босс «устал», убираем трещину — GDD §7.3 (в режиме Мастера пощады нет)
+  if(!prof().hard && boss.consecFail>=2 && remaining>1){
+    const c=boss.cracks.filter(c=>c.state==="open").pop();
+    c.state="closed"; boss.closed++; boss.consecFail=0;
+    toast(`😮‍💨 ${esc(L.boss)} устал и опустил щит — одна трещина закрылась сама!`, 3000);
+    save();
+    return setTimeout(bossNext, 900);
+  }
+  while(boss.cracks[boss.idx].state!=="open") boss.idx=(boss.idx+1)%boss.cracks.length;
+  const {a,b}=parseKey(boss.cracks[boss.idx].k);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  const hard=prof().hard;
+  askFact({
+    a:x,b:y, phase:null,
+    oneShot:hard, timer:hard?5:undefined, noHint:hard, // Мастер: один выстрел на трещину, на время, без подсказки
+    onQuit:()=>{ const bn=boss.n; boss=null; toast("Отступление — тоже разведка. Босс будет ждать."); showLand(bn); },
+    progress:`Закрыто ${boss.closed}/${boss.need}`,
+    headerHtml:`<div class="center"><div class="boss-emoji" style="--landGlow:${L.color}aa;">${L.bossIcon}</div>${bossCracksHtml()}</div>`,
+    hint:`«Почти!» — рычит ${esc(L.boss)}. ${hintFor(x,y)}`,
+    onDone:(ok,ms)=>{
+      const c=boss.cracks[boss.idx];
+      const f=ensureFact(x,y); S.stats.answers++; if(ok) recTime(f,ms);
+      if(ok){
+        c.state="closed"; boss.closed++; boss.consecFail=0; S.sparks+=5; S.stats.correct++;
+        f.streak++;
+      }else{
+        // ответ со 2+ попытки: трещина остаётся, засчитана ошибка
+        c.state="failed"; boss.failed++; boss.consecFail++; boss.flawless=false;
+        f.errors++; bumpLandErrors(boss.n); S.sparks+=1;
+      }
+      save();
+      // ярость: без ошибок и всё закрыто — бонус-трещина из другой земли — GDD §7.3
+      if(boss.flawless && boss.closed===boss.total && !boss.bonus){
+        boss.bonus=true;
+        const others=LANDS.filter(l=>l.n!==boss.n && landOpenCount(l.n)>0);
+        if(others.length){
+          const ol=rnd(others);
+          const ok2=rnd(landKeys(ol.n).filter(k=>S.facts[k]&&S.facts[k].reps>0));
+          if(ok2){
+            boss.cracks.push({k:ok2, state:"open"});
+            boss.total++;
+            toast(`😡 ${esc(L.boss)} в ярости призвал подмогу из земли «${esc(ol.name)}»!`, 3000);
+          }
+        }
+      }
+      setTimeout(bossNext, 500);
+    }
+  });
+};
+function bossEnd(){
+  const L=landOf(boss.n);
+  const win = boss.closed>=boss.need && boss.failed<=boss.allowed;
+  if(win){
+    S.bossDone[boss.n]=true;
+    S.sparks+=50; openFresco(3);
+    let extra="";
+    if(boss.flawless){
+      const a=grantArtifact();
+      if(a) extra=`<p>🏆 Без единой ошибки! Редкий артефакт: <b>${a.icon} ${esc(a.name)}</b><br><span class="muted">Титул: «${esc(a.title)}»</span></p>`;
+    }
+    save(); sndWin(); fireworks(24, true);
+    render(`
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div style="font-size:70px;">👑</div>
+        <h1>${esc(L.boss)} побеждён!</h1>
+        <p class="muted">Земля «${esc(L.name)}» свободна. +50 ✨</p>
+        ${extra}
+        <button class="btn primary big" onclick="showMap()">На карту</button>
+      </div>`);
+  }else{
+    sndBad();
+    render(`
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div class="boss-emoji" style="font-size:70px;">${L.bossIcon}</div>
+        <h2>${esc(L.boss)} отступил за трещины…</h2>
+        <p class="muted">Ты закрыл ${boss.closed} из ${boss.need}. Это не поражение — это разведка.
+        Загляни в Мастерскую за приёмом и возвращайся!</p>
+        <button class="btn primary" onclick="startBoss(${boss.n})">⚔️ Ещё раз</button>
+        <button class="btn ghostb" onclick="showLand(${boss.n})">Передохнуть</button>
+      </div>`);
+  }
+  boss=null;
+}
+
+/* =====================================================================
+   БОЙ-МОЛНИЯ: реванш на скорость (автоматизация <2–3 сек, GDD §18)
+   ===================================================================== */
+let blitz=null;
+window.startBlitz = n=>{
+  const L=landOf(n);
+  blitz={n, qs:shuffle(landKeys(n)).slice(0,7), i:0, bolts:0, marks:[], times:[]};
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <div class="boss-emoji" style="font-size:70px; --landGlow:${L.color}aa;">${L.bossIcon}⚡</div>
+      <h2>Бой-молния: ${esc(L.boss)}</h2>
+      <p class="muted" style="max-width:430px; margin:0 auto;">Побеждённый босс вернулся потренировать тебя.
+      7 ударов: ответь верно <b style="color:var(--accent)">быстрее 3 секунд</b> — получишь молнию.
+      Собери <b style="color:var(--text)">5 молний</b> — и победа. Медленный ответ — не провал, просто без молнии.</p>
+      ${S.blitzDone[n]?`<p class="muted">Твой рекорд: ⚡ ${S.blitzDone[n]} из 7</p>`:""}
+      <button class="btn primary big" onclick="blitzNext()">⚡ Начать</button>
+      <button class="btn ghostb small" onclick="showLand(${n})">Не сегодня</button>
+    </div>`);
+};
+window.blitzNext = ()=>{
+  if(!blitz) return;
+  const L=landOf(blitz.n);
+  if(blitz.i>=blitz.qs.length){ return blitzEnd(); }
+  const {a,b}=parseKey(blitz.qs[blitz.i]);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  const marks=blitz.marks.join("")+"▫".repeat(blitz.qs.length-blitz.i);
+  askFact({
+    a:x,b:y, noHint:true,
+    onQuit:()=>{ const bn=blitz.n; blitz=null; showLand(bn); },
+    progress:`⚡ ${blitz.bolts}`,
+    headerHtml:`<div class="center">
+      <div class="boss-emoji" style="--landGlow:${L.color}aa;">${L.bossIcon}</div>
+      <div style="font-size:18px; letter-spacing:3px;">${marks}</div>
+      <div class="blitz-bar"><div></div></div>
+    </div>`,
+    onDone:(ok,ms)=>{
+      const hit = ok && ms<=3000;
+      if(hit) blitz.bolts++;
+      blitz.marks.push(hit?"⚡":"·");
+      blitz.times.push(ms);
+      if(ok) recTime(ensureFact(x,y), ms); // питает метрику автоматизации; SRS не трогаем — это тренировка
+      S.stats.answers++; if(ok)S.stats.correct++;
+      save();
+      blitz.i++; blitzNext();
+    }
+  });
+};
+function blitzEnd(){
+  const L=landOf(blitz.n);
+  const win=blitz.bolts>=5;
+  const avg=blitz.times.reduce((s,t)=>s+t,0)/blitz.times.length/1000;
+  const first=win && !S.blitzDone[blitz.n];
+  let extra="";
+  if(win){
+    S.blitzDone[blitz.n]=Math.max(S.blitzDone[blitz.n]||0, blitz.bolts);
+    S.sparks += first?30:10;
+    if(LANDS.every(l=>S.blitzDone[l.n]) && !S.artifacts.includes("bolt")){
+      S.artifacts.push("bolt");
+      const bolt=ARTIFACTS.find(a=>a.id==="bolt");
+      extra=`<p>🏆 Все девять боссов повержены молнией! Артефакт: <b>${bolt.icon} ${esc(bolt.name)}</b><br><span class="muted">Титул: «${esc(bolt.title)}»</span></p>`;
+    }
+    save(); sndWin(); fireworks(18, true);
+  }else{ save(); }
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <div style="font-size:64px;">${win?"⚡👑":"⚡"}</div>
+      <h2>${win?"Молниеносная победа!":"Хорошая тренировка!"}</h2>
+      <div style="font-size:22px; letter-spacing:3px;">${blitz.marks.join("")}</div>
+      <p class="muted">Молний: ${blitz.bolts} из 7 · среднее время: ${avg.toFixed(1)} сек</p>
+      ${win?`<p class="muted">+${first?30:10} ✨${first?" (первая молниеносная победа!)":""}</p>`:`<p class="muted">Нужно 5 молний. Скорость приходит с повторением — загляни ещё раз!</p>`}
+      ${extra}
+      <button class="btn primary" onclick="startBlitz(${blitz.n})">⚡ Ещё раз</button>
+      <button class="btn ghostb" onclick="showLand(${blitz.n})">К земле</button>
+    </div>`);
+  blitz=null;
+}
+
+/* =====================================================================
+   ПОРТАЛ ХАОСА (interleaving) — GDD §11
+   ===================================================================== */
+let portal=null;
+window.startPortal = ()=>{
+  const len=prof().portalLen||3;
+  // примеры из РАЗНЫХ открытых таблиц
+  const openKeys=Object.entries(S.facts).filter(([k,f])=>f.reps>0).map(([k])=>k);
+  const byTable={};
+  openKeys.forEach(k=>{const {a,b}=parseKey(k); byTable[b]=byTable[b]||[]; byTable[b].push(k); byTable[a]=byTable[a]||[]; byTable[a].push(k);});
+  const tables=shuffle(Object.keys(byTable)).slice(0,len);
+  const qs=[...new Set(tables.map(t=>rnd(byTable[t])))];
+  while(qs.length<Math.min(len,openKeys.length)){ const k=rnd(openKeys); if(!qs.includes(k)) qs.push(k); }
+  portal={qs:shuffle(qs), i:0, allOk:true};
+  S.portalsThisSession++; save();
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <div style="font-size:64px;">🌀</div>
+      <h2>Портал Хаоса!</h2>
+      <p class="muted" style="max-width:420px; margin:0 auto;">Тут смешалось всё: разные земли, разные таблицы.
+      Реши ${portal.qs.length} примеров подряд — получишь <b style="color:var(--spark)">двойные искры</b> и осколок лора.</p>
+      <button class="btn portal-btn" onclick="portalNext()">Шагнуть в воронку</button>
+      <button class="btn ghostb small" onclick="showMap()">Пройти мимо</button>
+    </div>
+  `);
+};
+window.portalNext = ()=>{
+  if(portal.i>=portal.qs.length){
+    let msg;
+    if(portal.allOk){
+      S.sparks+=20;
+      const lore=grantShard();
+      msg=`Портал закрыт! +20 ✨ (двойные) и осколок:<br><i>«${esc(lore)}»</i>`;
+      sndWin(); fireworks();
+    }else{
+      S.sparks+=8;
+      msg="Портал закрыт. Было непросто — +8 ✨ за смелость!";
+    }
+    save(); portal=null;
+    render(`<div class="quiz-wrap center col" style="gap:16px;">
+      <div style="font-size:60px;">🌀✔</div><h2>Готово!</h2>
+      <p class="muted" style="max-width:400px;margin:0 auto;">${msg}</p>
+      <button class="btn primary" onclick="showMap()">На карту</button></div>`);
+    return;
+  }
+  const {a,b}=parseKey(portal.qs[portal.i]);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  askFact({
+    a:x,b:y,
+    onQuit:()=>{ portal=null; toast("Ты вышел из воронки — награда осталась внутри."); showMap(); },
+    progress:`${portal.i+1} / ${portal.qs.length}`,
+    headerHtml:`<div class="center" style="font-size:30px;">🌀</div>`,
+    onDone:(ok,ms)=>{
+      const f=ensureFact(x,y); f.reps++; if(ok) recTime(f,ms);
+      if(!ok){ f.errors++; portal.allOk=false; }
+      if(ms>5000) f.slowCnt++;
+      scheduleNext(f, ok);
+      S.stats.answers++; if(ok)S.stats.correct++;
+      save();
+      portal.i++; portalNext();
+    }
+  });
+};
+
+/* =====================================================================
+   УГОЛОК ЗАБВЕНИЯ — GDD §6.2
+   ===================================================================== */
+let corner=null;
+window.showCorner = ()=>{
+  const sticky=stickyFacts().slice(0,8);
+  if(!sticky.length){ toast("Подземелье пусто — Хаосу нечего прятать!"); return; }
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <div style="font-size:60px;">🕯️</div>
+      <h2>Уголок Забвения</h2>
+      <p class="muted" style="max-width:430px; margin:0 auto;">Хаос спрятал под замком самые липкие примеры — те, что убегали от тебя.
+      Спустись и забери их обратно. Там редкий лут.</p>
+      <div class="row" style="justify-content:center; flex-wrap:wrap; gap:8px;">
+        ${sticky.map(k=>{const{a,b}=parseKey(k); return `<span class="chip">👻 ${a}×${b}</span>`;}).join("")}
+      </div>
+      <button class="btn primary big" onclick="cornerGo()">Спуститься</button>
+      <button class="btn ghostb small" onclick="showMap()">Не сегодня</button>
+    </div>
+  `);
+  corner={qs:shuffle(sticky), i:0, tries:0};
+};
+window.cornerGo = ()=>{
+  if(corner.i>=corner.qs.length){
+    const a=grantArtifact();
+    const lore=grantShard();
+    S.sparks+=15; save(); sndWin(); fireworks(20);
+    render(`<div class="quiz-wrap center col" style="gap:16px;">
+      <div style="font-size:60px;">🗝️✨</div>
+      <h2>Ты забрал примеры у Хаоса!</h2>
+      <p class="lore">«Ты не сдался. Это важнее, чем правильный ответ» — Магистр.</p>
+      <p class="muted">+15 ✨ · осколок лора${a?` · артефакт <b>${a.icon} ${esc(a.name)}</b>`:""}</p>
+      <button class="btn primary" onclick="showMap()">Наверх, к свету</button></div>`);
+    corner=null; return;
+  }
+  const {a,b}=parseKey(corner.qs[corner.i]);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  askFact({
+    a:x,b:y,
+    onQuit:()=>{ corner=null; toast("Подземелье подождёт. Возвращайся смелее!"); showMap(); },
+    progress:`${corner.i+1} / ${corner.qs.length}`,
+    headerHtml:`<div class="center" style="font-size:28px;">🕯️</div>`,
+    onDone:(ok,ms,att)=>{
+      const f=ensureFact(x,y);
+      f.reps++; if(ok) recTime(f,ms);
+      if(ok && att===1){ f.errors=Math.max(0,f.errors-1); f.slowCnt=Math.max(0,f.slowCnt-1); }
+      scheduleNext(f, ok);
+      S.stats.answers++; if(ok)S.stats.correct++;
+      save();
+      corner.i++; cornerGo();
+    }
+  });
+};
+
+/* =====================================================================
+   РЕЖИМ «БЕЗ МАГИИ» — GDD §9 (и финальный тест на Диплом)
+   ===================================================================== */
+let nomagic=null;
+window.startNoMagic = (count, isFinal)=>{
+  const openKeys=Object.entries(S.facts).filter(([k,f])=>f.reps>0).map(([k])=>k);
+  if(openKeys.length<count){ toast("Пока мало открытых врат для контрольной."); return; }
+  nomagic={qs:shuffle(openKeys).slice(0,count), i:0, ok:0, isFinal:!!isFinal, start:Date.now()};
+  document.body.classList.add("paper");
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <h2 style="color:#222;">📝 ${isFinal?"Финальный тест Магистра":"Как на контрольной"}</h2>
+      <p style="color:#666; max-width:420px; margin:0 auto;">${count} примеров. Белый лист. Без гномов, без молота, без подсказок.
+      ${isFinal?"Реши 18 из 20 — и получишь Диплом Магистра.":"Просто ты и числа."}</p>
+      <button class="btn" style="background:#198754; color:#fff;" onclick="noMagicNext()">Начать</button>
+      <button class="btn ghostb small" onclick="document.body.classList.remove('paper'); showMap()">Назад</button>
+    </div>
+  `);
+};
+window.noMagicNext = ()=>{
+  if(nomagic.i>=nomagic.qs.length){
+    const {ok, qs, isFinal}=nomagic;
+    const total=qs.length;
+    S.noMagicResults.push({ts:Date.now(), correct:ok, total});
+    let extra="";
+    if(isFinal && ok/total>=0.9){
+      S.diploma=true;
+      extra=`<p style="color:#b8860b; font-weight:700;">🏅 ДИПЛОМ МАГИСТРА ТВОЙ! Смотри в Зале Славы.</p>`;
+      sndWin();
+    }
+    save();
+    render(`
+      <div class="quiz-wrap center col" style="gap:14px;">
+        <h2 style="color:#222;">Решил ${ok} из ${total}</h2>
+        <p style="color:#555;">${ok===total?"Идеально. Ты готов к любой контрольной.":ok/total>=0.8?"Ты готов к контрольной. Пару примеров — в Уголок Забвения.":"Хаос ещё цепляется. Загляни в Уголок Забвения — и вернись."}</p>
+        ${extra}
+        <button class="btn" style="background:#198754;color:#fff;" onclick="document.body.classList.remove('paper'); showMap()">Вернуться в мир</button>
+      </div>`);
+    nomagic=null; return;
+  }
+  const {a,b}=parseKey(nomagic.qs[nomagic.i]);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  askFact({
+    a:x,b:y, paper:true, noHint:true,
+    onQuit:()=>{ nomagic=null; showMap(); },
+    progress:`${nomagic.i+1} / ${nomagic.qs.length}`,
+    onDone:(ok,ms,att)=>{
+      const f=ensureFact(x,y);
+      if(ok) recTime(f,ms);
+      if(ok&&att===1) nomagic.ok++;
+      else { f.errors++; }
+      if(ms>5000) f.slowCnt++;
+      f.reps++; scheduleNext(f, ok&&att===1);
+      S.stats.answers++; if(ok&&att===1)S.stats.correct++;
+      save();
+      nomagic.i++; noMagicNext();
+    }
+  });
+};
+
+/* =====================================================================
+   ФИНАЛЬНЫЙ БОСС: ХАОС ЗАБВЕНИЯ — GDD §8
+   ===================================================================== */
+let chaos=null;
+window.startChaos = ()=>{
+  const calm = S.settings.calm || prof().calm;
+  const openKeys=Object.entries(S.facts).filter(([k,f])=>f.reps>0).map(([k])=>k);
+  chaos={calm, tiles:[], fixed:0, broken:0, waves:calm?1:3, wave:0, timer:null, over:false,
+         pool:shuffle(openKeys)};
+  for(let i=0;i<30;i++) chaos.tiles.push({k:chaos.pool[i%chaos.pool.length], state:"whole"});
+  render(`
+    <div class="quiz-wrap center col" style="gap:16px;">
+      <div style="font-size:74px;">🌀</div>
+      <h1>ХАОС ЗАБВЕНИЯ</h1>
+      <p class="muted" style="max-width:440px; margin:0 auto;">
+        Хаос ломает Врата мира ${calm?"— но время на твоей стороне: чини спокойно, в любом порядке."
+        :"волнами. Чини в своём темпе — проигрыша нет, есть только трещины, которые можно долечить потом."}
+      </p>
+      <p class="muted">${calm?"Почини 15 из 20 — и Хаос падёт.":"Почини 25 из 30 — и Хаос падёт."}</p>
+      <button class="btn primary big" onclick="chaosBegin()">⚔️ Последняя битва</button>
+      <button class="btn ghostb small" onclick="showLand(10)">Отступить</button>
+    </div>
+  `);
+};
+window.chaosBegin = ()=>{
+  if(chaos.calm){ breakTiles(20); }
+  else{
+    breakTiles(10);
+    chaos.timer=setInterval(()=>{
+      chaos.wave++;
+      if(chaos.wave>=3){
+        clearInterval(chaos.timer); chaos.timer=null;
+        if(!quizState) drawChaos(); // переоценить условие победы после последней волны
+        return;
+      }
+      breakTiles(10);
+      chaos.newWave=true;
+      // пока ребёнок вводит ответ — его экран неприкосновенен (GDD §5);
+      // волна проявится, когда он вернётся к сетке
+      if(!quizState) drawChaos();
+    }, 20000);
+  }
+  drawChaos();
+};
+function breakTiles(k){
+  const whole=chaos.tiles.filter(t=>t.state==="whole");
+  shuffle(whole).slice(0,k).forEach(t=>{t.state="broken"; chaos.broken++;});
+}
+function drawChaos(){
+  if(!chaos || chaos.over) return;
+  if(chaos.newWave){ chaos.newWave=false; toast("🌀 Волна! Хаос сломал ещё врата!"); }
+  const target=chaos.calm?15:25;
+  render(`
+    <div class="topbar">
+      <span class="chip">🌀 Хаос Забвения</span>
+      <span class="spacer"></span>
+      <span class="chip">🔧 ${chaos.fixed}/${target}</span>
+    </div>
+    <p class="muted center" style="margin-bottom:10px;">Жми на треснувшие врата и чини их!</p>
+    <div class="chaos-grid">
+      ${chaos.tiles.map((t,i)=>{
+        const {a,b}=parseKey(t.k);
+        return `<div class="ctile ${t.state}"${t.state==="broken"?` tabindex="0" role="button" aria-label="Треснувшие врата ${a} на ${b} — починить"`:' aria-hidden="true"'} onclick="${t.state==="broken"?`chaosFix(${i})`:""}">
+          ${t.state==="broken"?`${a}×${b}`:t.state==="fixed"?"✦":"▦"}</div>`;
+      }).join("")}
+    </div>
+    ${chaosDoneCheck()}
+  `);
+}
+function chaosDoneCheck(){
+  const anyBroken=chaos.tiles.some(t=>t.state==="broken");
+  const wavesLeft=!chaos.calm && chaos.timer;
+  if(!anyBroken && !wavesLeft && chaos.broken>0){
+    setTimeout(chaosEnd, 400); return "";
+  }
+  if(chaos.fixed>= (chaos.calm?15:25)){
+    return `<div class="center" style="margin-top:12px;"><button class="btn primary" onclick="chaosEnd()">⚡ Добить Хаос!</button></div>`;
+  }
+  return "";
+}
+window.chaosFix = i=>{
+  const t=chaos.tiles[i];
+  const {a,b}=parseKey(t.k);
+  const [x,y]=Math.random()<0.5?[a,b]:[b,a];
+  askFact({
+    a:x,b:y,
+    onQuit:()=>drawChaos(),
+    progress:`🔧 ${chaos.fixed}`,
+    headerHtml:`<div class="center" style="font-size:26px;">🌀</div>`,
+    onDone:(ok)=>{
+      t.state="fixed"; chaos.fixed++;
+      const f=ensureFact(x,y); f.reps++; scheduleNext(f, ok);
+      if(!ok) f.errors++;
+      S.stats.answers++; if(ok)S.stats.correct++;
+      save(); drawChaos();
+    }
+  });
+};
+window.chaosEnd = ()=>{
+  if(!chaos || chaos.over) return;
+  chaos.over=true;
+  if(chaos.timer) clearInterval(chaos.timer);
+  const target=chaos.calm?15:25;
+  const leftBroken=chaos.tiles.filter(t=>t.state==="broken").length;
+  if(chaos.fixed>=target){
+    S.chaosDone=true; S.sparks+=100;
+    // фреска: досыпать клеток за финал
+    for(let i=0;i<15;i++) grantShard();
+    save(); sndWin(); fireworks(30, true);
+    render(`
+      <div class="quiz-wrap center col" style="gap:18px;">
+        <div style="font-size:74px;">💥✨</div>
+        <h1>Хаос рассыпался на сто искр!</h1>
+        <p class="lore" style="max-width:440px; margin:0 auto;">«Ты больше не нуждаешься во мне.
+        Ты сам — Магистр Множитель». </p>
+        <p class="muted">+100 ✨ · Карта мира вспыхнула · Фреска почти собрана</p>
+        <p class="muted">Остался последний шаг: <b style="color:var(--text)">финальный тест без магии</b> — 20 примеров, белый лист. Реши 18 — и Диплом твой.</p>
+        <button class="btn primary big" onclick="startNoMagic(20, true)">📝 Финальный тест</button>
+        <button class="btn ghostb" onclick="showMap()">Позже, на карту</button>
+      </div>`);
+  }else{
+    // треснутые врата становятся «липкими» и просроченными — попадут в Уголок Забвения
+    chaos.tiles.filter(t=>t.state==="broken").forEach(t=>{
+      const f=S.facts[t.k];
+      if(f){ f.errors=Math.max(f.errors,2); f.due=Math.min(f.due, Date.now()-DAY); }
+    });
+    save();
+    render(`
+      <div class="quiz-wrap center col" style="gap:16px;">
+        <div style="font-size:64px;">🌀</div>
+        <h2>Хаос отступил… но оставил ${leftBroken} треснутых врат</h2>
+        <p class="muted">Почини их в Уголке Забвения — и возвращайся. Бой можно повторить в любой момент.</p>
+        <button class="btn primary" onclick="startChaos()">⚔️ Ещё раз</button>
+        <button class="btn ghostb" onclick="showMap()">На карту</button>
+      </div>`);
+  }
+  chaos=null;
+};
+
+/* =====================================================================
+   ХАБ «ТРЕНИРОВКА»: все режимы-тренажёры в одном месте, во главе — цель
+   «решать без игры» (принцип ГДД §21: игра должна сама себя отменить)
+   ===================================================================== */
+window.showTrainHub = ()=>{
+  applyBodyModes(); document.body.classList.remove("paper");
+  const due=Object.values(S.facts).filter(f=>isDue(f)).length;
+  const sticky=stickyFacts();
+  const portalMax=S.settings.portalMax!=null?S.settings.portalMax:prof().portalMax;
+  const portalOk=S.portalsThisSession<portalMax && totalOpen()>=13;
+  const calm=S.settings.calm||prof().calm;
+  const noMagicOpen=Object.keys(S.bossDone).length>=3;
+  const card=(style,onclick,icon,title,desc)=>`<button class="train-card" style="${style}" onclick="${onclick}">
+    <span class="tc-ic">${icon}</span><span class="tc-tx"><b>${title}</b><span class="muted">${desc}</span></span></button>`;
+  render(`
+    <div class="topbar">
+      <button class="btn small ghostb" onclick="showMap()">← Карта</button>
+      <span class="spacer"></span><span class="chip">🎯 Тренировка</span>
+    </div>
+    <p class="muted" style="margin:4px 0 14px;">Оттачивай то, что уже знаешь — чтобы однажды решать <b style="color:var(--text)">без игры</b>: у доски, за 2 секунды.${S.diploma?" Диплом у тебя — ты уже можешь!":""}</p>
+    <div class="col" style="gap:10px;">
+      ${noMagicOpen?card("background:#f5f5f0;color:#222;","startNoMagic(10)","📝","Без магии","Реши как на контрольной — без гномов и молота. Это и есть цель."):""}
+      ${S.chaosDone&&!S.diploma?card("background:#fdf6e3;color:#4a3200;","startNoMagic(20,true)","🏅","Финальный тест Магистра","20 примеров, белый лист. 18 верных — Диплом."):""}
+      ${due>0?card("","startReview()","👻","Повтори призраков ("+due+")","Освежить то, что начало забываться."):""}
+      ${card("background:#1f3a2e;","startMarathon()","🏃","Марафон","Прогнать всю таблицу или одну — сразу, без ожидания.")}
+      ${sticky.length>=3?card("background:#2d1b4e;","showCorner()","🕯️","Уголок Забвения ("+sticky.length+")","Забрать самые липкие примеры — там редкий лут."):""}
+      ${!calm?card("background:#3a1520;border:1px solid #f0a5a555;","startTrial()","🗡️","Испытание Мастера"+(S.trialBest?" · "+["🥉","🥈","🥇"][S.trialBest-1]:""),"Один ответ, на время, 3 жизни. Можно проиграть."):""}
+      ${portalOk?card("background:radial-gradient(circle at 50% 40%,#7c3aed,#2e1065);color:#e9d5ff;","startPortal()","🌀","Портал Хаоса","Блиц из разных таблиц — учит переключаться."):""}
+    </div>
+    ${calm?`<p class="muted" style="font-size:13px; margin-top:14px;">🕊️ Спокойный режим: испытания на время скрыты. Взрослый может изменить это в Панели Магистра.</p>`:""}
+  `);
+};
+
+/* =====================================================================
+   КУЗНИЦА — GDD §14
+   ===================================================================== */
+window.showForge = ()=>{
+  render(`
+    <div class="topbar">
+      <button class="btn small ghostb" onclick="showMap()">← Карта</button>
+      <span class="spacer"></span><span class="chip">✨ ${S.sparks}</span>
+    </div>
+    <h2>⚒️ Кузница Хранителя</h2>
+    <p class="muted" style="margin:6px 0 14px;">Трать искры на экипировку. Искры — застывшие правильные ответы!</p>
+    <div class="shop">
+      ${SHOP.map(it=>{
+        const owned=S.items.includes(it.id);
+        return `<div class="shop-item ${owned?"owned":""}" tabindex="0" role="button" aria-label="${esc(it.name)}, ${owned?"куплено":"цена "+it.price+" искр"}" onclick="buyItem('${it.id}')">
+          <div class="icon">${it.icon}</div>
+          <div style="font-size:13px; margin:4px 0;">${esc(it.name)}</div>
+          <div class="price">${owned?"✔ куплено":"✨ "+it.price}</div>
+        </div>`;
+      }).join("")}
+    </div>
+  `);
+};
+window.buyItem = id=>{
+  const it=SHOP.find(x=>x.id===id);
+  if(S.items.includes(id)){ toast(`${it.icon} Уже в твоём арсенале!`); return; }
+  if(S.sparks<it.price){ toast(`Не хватает искр: нужно ✨${it.price}. Открывай врата!`); sndBad(); return; }
+  S.sparks-=it.price; S.items.push(id); save(); sndGood(); fireworks(10);
+  toast(`${it.icon} ${esc(it.name)} — твой!`);
+  showForge();
+};
+
+/* =====================================================================
+   МАСТЕРСКАЯ МАГИСТРА — GDD §10
+   ===================================================================== */
+let wsFact={a:7,b:8};
+window.showWorkshop = (tab)=>{
+  tab=tab||"razbor";
+  const {a,b}=wsFact;
+  const tabs=[["razbor","🔍 Разбор"],["patterns","🧩 Паттерны"],["abacus","🧮 Абакус"],["tricks","🧙‍♂️ Приёмы"]];
+  let body="";
+  if(tab==="razbor"){
+    const k=Math.min(a,b), t=Math.max(a,b);
+    body=`
+      <div class="col">
+        <div class="row" style="justify-content:center; gap:6px; flex-wrap:wrap;">
+          ${[[6,7],[7,8],[8,9],[4,7],[6,8],[3,9]].map(([x,y])=>
+            `<button class="btn small ${wsFact.a===x&&wsFact.b===y?"primary":""}" onclick="wsPick(${x},${y})">${x}×${y}</button>`).join("")}
+        </div>
+        <div class="card center">
+          <div class="equation" style="font-size:36px;">${a} × ${b} = <b style="color:var(--accent)">${a*b}</b></div>
+        </div>
+        <div class="hintbox">Путь 1: ${k}×${t} = ${k}×${t-1} + ${k} = ${k*(t-1)} + ${k} = <b>${k*t}</b></div>
+        <div class="hintbox">Путь 2: ${k}×${t} = ${k}×10 − ${k}×${10-t} = ${k*10} − ${k*(10-t)} = <b>${k*t}</b></div>
+        <p class="muted center">Два пути — один ответ. Выбирай тот, что короче для тебя.</p>
+      </div>`;
+  }else if(tab==="patterns"){
+    body=`
+      <div class="col">
+        <div class="card">🔵 Все ответы <b>×5</b> заканчиваются на 0 или 5: 5, 10, 15, 20, 25…</div>
+        <div class="card">🔴 У ответов <b>×9</b> сумма цифр = 9: 18→1+8=9, 27→2+7=9, 36→3+6=9…</div>
+        <div class="card">🟢 <b>×2, ×4, ×6, ×8</b> — ответы всегда чётные.</div>
+        <div class="card">🟡 <b>×10</b> — просто припиши ноль.</div>
+        <div class="card">🔁 <b>Близнецы:</b> 3×7 = 7×3. Всегда. Половина таблицы уже у тебя!</div>
+      </div>`;
+  }else if(tab==="abacus"){
+    body=`
+      <div class="col center" id="abacusBox">
+        <p class="muted">Собери число <b id="abTarget" style="color:var(--accent); font-size:22px;"></b> из десятков и единиц:</p>
+        <div style="font-size:34px; min-height:50px;" id="abView"></div>
+        <div style="font-size:26px; font-weight:800;" id="abVal">0</div>
+        <div class="row" style="justify-content:center; gap:8px; flex-wrap:wrap;">
+          <button class="btn" onclick="abAdd(10)">+ 🟠 десяток</button>
+          <button class="btn" onclick="abAdd(1)">+ 🔵 единица</button>
+          <button class="btn ghostb" onclick="abAdd(-10)">− десяток</button>
+          <button class="btn ghostb" onclick="abAdd(-1)">− единица</button>
+        </div>
+        <button class="btn primary" onclick="abCheck()">Проверить</button>
+      </div>`;
+    setTimeout(abNew, 0);
+  }else{
+    body=`<div class="col">${LANDS.filter(l=>l.n>=2).map(l=>
+      `<div class="card" style="border-left:4px solid ${l.color};"><b>${l.icon} ×${l.n}:</b> ${esc(l.trick)}</div>`).join("")}</div>`;
+  }
+  render(`
+    <div class="topbar">
+      <button class="btn small ghostb" onclick="showMap()">← Карта</button>
+      <span class="spacer"></span><span class="chip">🔬 Мастерская</span>
+    </div>
+    <div class="row" style="flex-wrap:wrap; gap:6px; margin-bottom:14px;">
+      ${tabs.map(([id,label])=>`<button class="btn small ${tab===id?"primary":""}" onclick="showWorkshop('${id}')">${label}</button>`).join("")}
+    </div>
+    ${body}
+  `);
+};
+window.wsPick=(a,b)=>{ wsFact={a,b}; showWorkshop("razbor"); };
+let abTarget=56, abVal=0;
+window.abNew=()=>{
+  const pairs=[[6,7],[7,8],[8,9],[6,9],[4,9],[7,7]];
+  const [x,y]=rnd(pairs); abTarget=x*y; abVal=0; abDraw();
+  const el=document.getElementById("abTarget"); if(el) el.textContent=`${x}×${y} = ${abTarget}`;
+};
+window.abAdd=v=>{ abVal=Math.max(0,Math.min(100,abVal+v)); abDraw(); };
+function abDraw(){
+  const t=Math.floor(abVal/10), u=abVal%10;
+  const view=document.getElementById("abView"), val=document.getElementById("abVal");
+  if(view) view.textContent="🟠".repeat(t)+" "+"🔵".repeat(u);
+  if(val) val.textContent=`${t} десятков + ${u} единиц = ${abVal}`;
+}
+window.abCheck=()=>{
+  if(abVal===abTarget){ sndGood(); toast("✔ Точно! Число собрано."); fireworks(8); setTimeout(abNew,700); }
+  else{ sndBad(); toast(`Пока ${abVal}. Нужно ${abTarget}. ${abVal<abTarget?"Добавь":"Убери"} ещё!`); }
+};
+
+/* =====================================================================
+   ЗАЛ СЛАВЫ: фреска, артефакты, диплом — GDD §14
+   ===================================================================== */
+window.showHall = ()=>{
+  const cells=Array.from({length:100},(_,i)=>
+    `<div class="fcell ${S.frescoCells.includes(i)?"on":""}" style="background-position:${(i%10)*11.11}% ${Math.floor(i/10)*11.11}%"></div>`).join("");
+  const arts=ARTIFACTS.filter(a=>S.artifacts.includes(a.id));
+  const acc=S.stats.answers?Math.round(S.stats.correct/S.stats.answers*100):0;
+  render(`
+    <div class="topbar">
+      <button class="btn small ghostb" onclick="showMap()">← Карта</button>
+      <span class="spacer"></span><span class="chip">🏛️ Зал Славы</span>
+    </div>
+    <div class="col">
+      <div class="card center">
+        <h3 style="margin-bottom:10px;">Фреска Арифметики · ${S.frescoCells.length}/100</h3>
+        <div class="fresco">${cells}</div>
+        <p class="muted" style="margin-top:8px; font-size:13px;">Осколки лора открывают фрагменты. Повторяй старые врата — собирай картину мира.</p>
+      </div>
+      <div class="card">
+        <h3>📜 Книга лора · ${[...new Set(S.shards)].length}/${LORE.length}</h3>
+        <div class="col" style="margin-top:10px; gap:8px;">
+          ${LORE.map((t,i)=>[...new Set(S.shards)].includes(i)
+            ? `<p class="lore">«${esc(t)}»</p>`
+            : `<p class="muted" style="font-size:13.5px;">🔒 Осколок ещё в тумане…</p>`).join("")}
+        </div>
+      </div>
+      <div class="card">
+        <h3>🏆 Артефакты и титулы</h3>
+        ${arts.length?arts.map(a=>`<p style="margin-top:8px;">${a.icon} <b>${esc(a.name)}</b> — «${esc(a.title)}»</p>`).join("")
+          :'<p class="muted" style="margin-top:8px;">Пока пусто. Артефакты дают боссы (без ошибок) и Уголок Забвения.</p>'}
+      </div>
+      <div class="card">
+        <h3>📊 Хроника Хранителя</h3>
+        <p class="muted" style="margin-top:8px;">Ответов: ${S.stats.answers} · Точность: ${acc}% · Врат открыто: ${totalOpen()}/55 · Боссов повержено: ${Object.keys(S.bossDone).length}${S.chaosDone?" + Хаос":""}${Object.keys(S.blitzDone).length?` · ⚡ Боёв-молний выиграно: ${Object.keys(S.blitzDone).length}/9`:""}${S.trialBest?` · 🗡️ Испытание Мастера: ${["Бронза","Серебро","Золото"][S.trialBest-1]}`:""}</p>
+        ${S.noMagicResults.length?`<p class="muted">Последняя «контрольная»: ${S.noMagicResults.at(-1).correct}/${S.noMagicResults.at(-1).total}</p>`:""}
+      </div>
+      ${S.chaosDone&&!S.diploma?`
+      <div class="card center">
+        <h3>🏅 Диплом Магистра ждёт</h3>
+        <p class="muted" style="margin:8px 0;">Хаос повержен. Остался финальный тест: 20 примеров, белый лист, 18 верных — и Диплом твой.</p>
+        <button class="btn primary" onclick="startNoMagic(20, true)">📝 Пройти финальный тест</button>
+      </div>`:""}
+      ${S.diploma?`
+      <div class="diploma">
+        <div style="font-size:40px;">🏅</div>
+        <h2>ДИПЛОМ МАГИСТРА</h2>
+        <p>Сим удостоверяется, что Хранитель Числовых Врат<br>прошёл все девять земель, победил Хаос Забвения<br>и владеет таблицей умножения<br><b>без гномов, без магии, без страха.</b></p>
+        <p style="margin-top:12px; font-style:italic;">«Это просто 56». — Магистр Множитель</p>
+      </div>
+      <button class="btn" onclick="window.print()">🖨️ Распечатать диплом</button>`:""}
+    </div>
+  `);
+};
+
+/* =====================================================================
+   ПАНЕЛЬ МАГИСТРА (родитель/учитель) — GDD §13
+   ===================================================================== */
+/* куда вернуться из панели: 'menu' (пришли из выбора профиля) или 'map' (с карты) */
+let parentReturn = "map";
+window.exitParent = ()=>{ parentReturn==="players" ? showPlayerPick() : parentReturn==="menu" ? showProfilePick() : showMap(); };
+window.showParentGate = (from)=>{
+  parentReturn = from || (S.profile ? "map" : "menu");
+  const x=Math.floor(Math.random()*30)+13, y=Math.floor(Math.random()*4)+3;
+  render(`
+    <div class="quiz-wrap center col" style="gap:14px;">
+      <h2>⚙️ Панель Магистра</h2>
+      <p class="muted">Вход для взрослых. Сколько будет <b style="color:var(--text)">${x} × ${y}</b>?</p>
+      <input id="pgate" inputmode="numeric" style="font-size:24px; padding:10px; width:120px; text-align:center; border-radius:12px; border:1px solid #ffffff33; background:var(--card2); color:var(--text);">
+      <button class="btn primary" onclick="(+document.getElementById('pgate').value===${x*y})?showParent():toast('Неверно. Это защита от юных Хранителей 🙂')">Войти</button>
+      <button class="btn ghostb small" onclick="exitParent()">Назад</button>
+    </div>
+  `);
+  setTimeout(()=>{const el=document.getElementById("pgate"); el&&el.focus();},50);
+};
+window.showTitleBack = ()=>showTitle();
+window.showParent = ()=>{
+  const heat = Object.entries(S.facts).filter(([k,f])=>f.reps>0 && f.errors>0)
+    .sort((a,b)=>b[1].errors-a[1].errors).slice(0,6);
+  const learned=Object.values(S.facts).filter(f=>f.reps>0).length;
+  const auto=Object.values(S.facts).filter(f=>f.reps>=3 && f.ema && f.ema<2000).length;
+  render(`
+    <div class="topbar">
+      <button class="btn small ghostb" onclick="exitParent()">← Назад</button>
+      <span class="spacer"></span><span class="chip">⚙️ Для взрослых</span>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h3>Профиль ребёнка</h3>
+        <div class="settings-row"><span>Профиль темпа</span>
+          <select onchange="setProfile(this.value)">
+            ${Object.entries(PROFILES).map(([k,p])=>`<option value="${k}" ${S.profile===k?"selected":""}>${p.label}</option>`).join("")}
+          </select></div>
+        <p class="muted" style="font-size:13px; margin-top:6px;">
+          «Особый темп» — для дискалькулии: повторения чаще, без таймеров, крупные группы точек, мягкие боссы.
+          «Фокус» — для СДВГ: статичный режим, короткие порталы. «Спокойствие» — без волн и жёстких боссов.</p>
+        <div class="settings-row"><span>🎓 Испытание на знание<br><span class="muted" style="font-size:12.5px;">открыть уже выученные таблицы, пропустив их</span></span>
+          <button class="btn small" onclick="startPlacement(true)">Запустить</button></div>
+        <p class="muted" style="font-size:13px; margin-top:8px;">🕯️ Отмена магии (GDD §9): этап <b style="color:var(--text)">${magicStage()} из 4</b> — «${MAGIC_STAGES[magicStage()]}».
+          Растёт с победами над боссами: салюты и декор тускнеют, экран примера очищается, после победы над Хаосом мир становится светлым. Цель — умножение без игры.</p>
+      </div>
+      <div class="card">
+        <h3>Настройки</h3>
+        <div class="settings-row"><span>🔊 Звук</span><button class="btn small" onclick="tgl('sound')">${S.settings.sound?"Вкл":"Выкл"}</button></div>
+        <div class="settings-row"><span>🗣️ Голос (мантры)</span><button class="btn small" onclick="tgl('voice')">${S.settings.voice?"Вкл":"Выкл"}</button></div>
+        <div class="settings-row"><span>🖼️ Статичный режим (без анимаций)</span><button class="btn small" onclick="tgl('static')">${S.settings.static?"Вкл":"Выкл"}</button></div>
+        <div class="settings-row"><span>🕊️ Спокойный режим (без волн Хаоса)</span><button class="btn small" onclick="tgl('calm')">${S.settings.calm?"Вкл":"Выкл"}</button></div>
+        <div class="settings-row"><span>👻 Скорость тускнения (SRS)</span>
+          <select onchange="S.settings.srsMult=+this.value; save();">
+            ${[0.5,1,1.5,2].map(v=>`<option value="${v}" ${S.settings.srsMult===v?"selected":""}>×${v}</option>`).join("")}
+          </select></div>
+        <div class="settings-row"><span>🌀 Порталов Хаоса за день</span>
+          <select onchange="S.settings.portalMax=+this.value; save();">
+            ${[0,1,2,3].map(v=>`<option value="${v}" ${(S.settings.portalMax!=null?S.settings.portalMax:prof().portalMax)===v?"selected":""}>${v}</option>`).join("")}
+          </select></div>
+      </div>
+      <div class="card">
+        <h3>🔥 Тепловая карта трудностей</h3>
+        ${heat.length?`<div class="row" style="flex-wrap:wrap; gap:8px; margin-top:8px;">
+          ${heat.map(([k,f])=>{const{a,b}=parseKey(k);return `<span class="chip" style="border-color:#f0a5a566;">⚠️ ${a}×${b} · ${f.errors} ош.${f.ema?` · ${(f.ema/1000).toFixed(1)}с`:""}</span>`;}).join("")}
+        </div>
+        <p class="muted" style="font-size:13px; margin-top:8px;">Рекомендация: Уголок Забвения + разбор в Мастерской (декомпозиция).</p>`
+        :'<p class="muted" style="margin-top:6px;">Стойких ошибок нет. Отличный ход!</p>'}
+        <p class="muted" style="font-size:13px; margin-top:8px;">⏱️ Автоматизировано (ответ быстрее 2 сек, от 3 повторений): <b style="color:var(--text)">${auto}</b> из ${learned} выученных фактов. Цель — все 45 к 4-й неделе.</p>
+      </div>
+      <div class="card">
+        <h3>🗣️ Режим «Родитель-Хаос»</h3>
+        <p class="muted" style="font-size:13.5px; margin-top:6px;">Диктуйте ребёнку примеры голосом — а он «отбивает» их здесь:</p>
+        <button class="btn" style="margin-top:8px;" onclick="startParentChaos()">Открыть чистый тренажёр</button>
+      </div>
+      <div class="card">
+        <h3>👥 Дети (профили)</h3>
+        <p class="muted" style="font-size:13px; margin:6px 0;">У каждого ребёнка свой прогресс на этом устройстве. Сейчас играет: <b style="color:var(--text)">${curPlayer?esc(curPlayer.emoji+" "+curPlayer.name):"—"}</b></p>
+        <div class="col" style="gap:6px; margin-top:6px;">
+          ${loadRegistry().players.map(p=>`<div class="settings-row"><span>${p.emoji} ${esc(p.name)}${curPlayer&&p.id===curPlayer.id?' <span class="muted">· сейчас</span>':""}</span>
+            <span class="row" style="gap:6px;">
+              <button class="btn small ghostb" onclick="selectPlayer('${p.id}')">Играть</button>
+              <button class="btn small" style="background:#5b2333;" onclick="parentDeletePlayer('${p.id}')">🗑️</button>
+            </span></div>`).join("")}
+        </div>
+        <button class="btn small" style="margin-top:8px;" onclick="showAddPlayer()">＋ Добавить ребёнка</button>
+      </div>
+      <div class="card">
+        <h3>Данные</h3>
+        <p class="muted" style="font-size:13px; margin:6px 0;">Хранится только прогресс по примерам, локально на этом устройстве. Без сети.</p>
+        <button class="btn small" style="background:#5b2333;" onclick="parentResetCurrent()">🗑️ Сбросить прогресс этого ребёнка</button>
+      </div>
+    </div>
+  `);
+};
+window.parentDeletePlayer = id=>{
+  const reg=loadRegistry();
+  const p=reg.players.find(x=>x.id===id); if(!p) return;
+  if(reg.players.length<=1){ toast("Нельзя удалить единственного игрока."); return; }
+  if(!confirm(`Удалить профиль «${p.name}» и весь его прогресс?`)) return;
+  const wasCurrent = curPlayer && curPlayer.id===id;
+  deletePlayer(id);
+  if(wasCurrent) return selectPlayer(loadRegistry().current);
+  showParent();
+};
+window.parentResetCurrent = ()=>{
+  if(!curPlayer) return;
+  if(!confirm(`Стереть прогресс профиля «${curPlayer.name}»?`)) return;
+  S=defaultState(); save(); applyBodyModes(); showTitle();
+};
+window.tgl = k=>{ S.settings[k]=!S.settings[k]; save(); applyBodyModes(); showParent(); };
+window.setProfile = p=>{ S.profile=p; save(); applyBodyModes(); toast("Профиль обновлён: "+PROFILES[p].label); };
+/* Родитель-Хаос: свободный тренажёр — взрослый диктует любой пример */
+window.startParentChaos = ()=>{
+  const a=Math.floor(Math.random()*9)+2, b=Math.floor(Math.random()*9)+2;
+  askFact({
+    a,b, paper:true, noHint:true,
+    onQuit:()=>showParent(),
+    headerHtml:`<div class="center muted" style="font-size:13px;">Режим «Родитель-Хаос» — реши и получишь следующий</div>`,
+    onDone:(ok)=>{
+      S.stats.answers++; if(ok)S.stats.correct++;
+      const f=ensureFact(a,b); if(f.reps>0){ if(!ok)f.errors++; }
+      save();
+      toast(ok?"✔ Верно!":"Запомни: "+a+"×"+b+"="+a*b);
+      startParentChaos();
+    }
+  });
+};
+
+/* ---------------- Старт ---------------- */
+window.showTitle = showTitle;
+(function boot(){
+  const reg = bootPlayers();
+  if(!reg.players.length){ showAddPlayer(true); return; }   // первый запуск — знакомимся
+  showPlayerPick();                                          // «Кто играет?»
+})();
+
+/* PWA: офлайн и установка на планшет (GDD §17). Работает при запуске с http/https;
+   открытие файла двойным кликом (file://) продолжает работать без установки. */
+if("serviceWorker" in navigator && location.protocol.indexOf("http")===0 && !window.__NO_SW){
+  addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+}
+</script>
+</body>
+</html>

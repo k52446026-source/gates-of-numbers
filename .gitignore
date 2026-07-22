@@ -1,0 +1,15 @@
+# Производное от src/ через build.mjs (для тестов и публикации артефактом)
+dist/
+
+# Локальные настройки Claude Code (машинно-специфичные)
+.claude/settings.local.json
+
+# OS / редакторы
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node
+node_modules/

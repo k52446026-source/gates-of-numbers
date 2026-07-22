@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Смоук-тесты · Хранители Числовых Врат</title>
+<link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+<div id="app"></div>
+<div id="report" style="max-width:720px;margin:20px auto;font-family:system-ui;color:#eef0ff;padding:12px;"></div>
+<!-- та же конкатенация JS, что и в проде (строгий режим), плюс смоук. Требует `node build.mjs`. -->
+<script>window.__NO_SW = true;</script>
+<script src="dist/bundle.js"></script>
+<script src="src/smoke.js"></script>
+<script>
+  // без "use strict" из модулей мешать не будем: боот уже выполнился, перехватываем и гоняем тесты
+  (async function(){
+    const rep = document.getElementById("report");
+    const res = await runSmoke();
+    const okAll = res.failed.length===0;
+    rep.innerHTML = `<h2 style="color:${okAll?'#4ade80':'#f0a5a5'}">Смоук: ${res.passed}/${res.total} ${okAll?'✅':'❌'}</h2>`
+      + (okAll ? "" : "<ul>"+res.failed.map(f=>`<li>❌ ${f}</li>`).join("")+"</ul>");
+    document.title = (okAll?"✅ ":"❌ ")+`${res.passed}/${res.total} — смоук`;
+    window.__smoke = res;
+  })();
+</script>
+</body>
+</html>
