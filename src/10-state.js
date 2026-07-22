@@ -31,7 +31,7 @@ function defaultState(){
     noMagicResults:[],     // {ts, correct, total}
     diploma:false,
     settings:{sound:true, voice:false, static:false, calm:false, srsMult:1.0, portalMax:null},
-    portalsThisSession:0, sessionDay:null, newToday:0,
+    portalsThisSession:0, sessionDay:null, newToday:0, portalToday:false,
     streak:{days:0, last:null},
     stats:{answers:0, correct:0},
   };

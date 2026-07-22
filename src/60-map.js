@@ -17,7 +17,9 @@ function newSessionCheck(){
     // серия только растёт: пропуск не «сжигает» её со стыдом, а начинает заново
     S.streak.days = S.streak.last===yesterday ? S.streak.days+1 : 1;
     S.streak.last=today;
-    S.sessionDay=today; S.portalsThisSession=0; S.newToday=0; save();
+    // жребий «Портал открылся сегодня?» бросаем один раз за день — иначе баннер
+    // мерцал бы (появлялся/исчезал) при каждом возврате на карту
+    S.sessionDay=today; S.portalsThisSession=0; S.newToday=0; S.portalToday=Math.random()<0.75; save();
   }
 }
 window.showMap = ()=>{
@@ -30,7 +32,9 @@ window.showMap = ()=>{
   const showStreak=S.streak.days>=2 && S.profile!=="anx";
   const sticky=stickyFacts();
   const portalMax = S.settings.portalMax!=null ? S.settings.portalMax : prof().portalMax;
-  const showPortal = S.portalsThisSession < portalMax && totalOpen()>=13 && Math.random()<0.75;
+  // старый сейв мог не иметь portalToday (сессия началась до обновления) — доберём жребий разово
+  if(S.portalToday==null){ S.portalToday=Math.random()<0.75; save(); }
+  const showPortal = S.portalsThisSession < portalMax && totalOpen()>=13 && S.portalToday;
   const bossesDone = Object.keys(S.bossDone).length;
   const noMagicOpen = bossesDone>=3;
   const mst=magicStage();

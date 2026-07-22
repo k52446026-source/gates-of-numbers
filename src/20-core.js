@@ -1,7 +1,7 @@
 /* ---------------- Утилиты ---------------- */
 const app = document.getElementById("app");
 function render(html){ app.innerHTML = html; app.firstElementChild && app.firstElementChild.classList.add("fade-in"); window.scrollTo(0,0); }
-function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function esc(s){ return String(s).replace(/[&<>"'\/]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;","/":"&#47;"}[c])); }
 function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
 function toast(msg, ms=2200){
