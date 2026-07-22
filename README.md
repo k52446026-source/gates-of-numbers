@@ -61,5 +61,5 @@ python -m http.server 8571   →   http://localhost:8571/tests.html
 ## Прочее
 
 - `sw.js`, `manifest.webmanifest`, `icon-*.png` — PWA (офлайн, установка на планшет). Работают при хостинге по http/https.
+- `qr-gates.png` — QR-код на онлайн-версию (для быстрой раздачи; ссылка в руководстве для взрослого).
 - `tools/split.mjs` — одноразовый разбор монолита на `src/` (для истории; повторно не нужен).
-- `pravila.html` — печатные правила игры.
