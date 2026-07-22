@@ -45,7 +45,7 @@ window.showMap = ()=>{
     return `
       <div class="land-tile ${unlocked?"":"locked"} ${done?"done":""}" tabindex="0" role="button"
            aria-label="${l.name}, таблица на ${l.n}, ${!unlocked?"заперта":done?"пройдена":due>0?due+" врат шепчут":"открыто "+open+" из "+total+" врат"}"
-           style="background:linear-gradient(160deg, ${l.color}cc, ${l.color}55);"
+           style="background:linear-gradient(#0000004d,#0000004d), linear-gradient(160deg, ${l.color}cc, ${l.color}55);"
            onclick="${unlocked?`showLand(${l.n})`:`lockedLand(${l.n})`}">
         ${agent===l.n?'<div class="agent" title="Агент Хаоса!">🌀</div>':""}
         <div class="lnum">×${l.n}</div>

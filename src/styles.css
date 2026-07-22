@@ -70,8 +70,8 @@
   }
   .land-tile:active{transform:scale(.97);}
   .land-tile .lnum{font-size:30px; font-weight:800; text-shadow:0 2px 4px #00000088;}
-  .land-tile .lname{font-size:12.5px; opacity:.95; line-height:1.2;}
-  .land-tile .lprog{font-size:11px; opacity:.85;}
+  .land-tile .lname{font-size:12.5px; line-height:1.2; text-shadow:0 1px 3px #0000009c;}
+  .land-tile .lprog{font-size:11px; text-shadow:0 1px 3px #0000009c;}
   .land-tile.locked{filter:grayscale(.85) brightness(.55); }
   .land-tile.done::after{content:"👑"; position:absolute; top:6px; right:8px; font-size:16px;}
   .land-tile .agent{
