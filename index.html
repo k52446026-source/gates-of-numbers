@@ -1354,6 +1354,7 @@ window.trialNext = ()=>{
         // честно неверный ответ — знаниевая ошибка, кормит SRS/Уголок; таймаут — только скорость, не незнание
         if(!timedOut){ f.reps++; f.errors++; scheduleNext(f,false); }
       }
+      trial.times.push(ms); // без этого среднее время = 0 и золото (avg<2.5) даётся за любой безошибочный проход
       S.stats.answers++; if(ok) S.stats.correct++;
       save();
       if(!ok) toast(timedOut?"⏳ Время вышло! −1 ❤️":"✗ Мимо! −1 ❤️", 1200);

@@ -118,6 +118,17 @@
     startTrial();
     ok("Испытание: <10 открытых врат — не запускается", trial===null && document.getElementById("app").textContent.includes("Ещё рано"));
 
+    // --- Испытание Мастера: золото требует скорости (avg<2.5), а не только точности ---
+    (function(){
+      const mk=(msEach)=>{ S.trialBest=0; S.artifacts=[];
+        trial={qs:new Array(14).fill("7x8"), i:14, lives:3, ok:14, times:new Array(14).fill(msEach), missed:[]};
+        trialEnd(true); };
+      mk(3000); // безошибочно, но медленно → Серебро, без «Печати Мастера»
+      ok("Испытание: медленный безошибочный проход → Серебро, без артефакта", S.trialBest===2 && !S.artifacts.includes("trial"));
+      mk(500);  // безошибочно и быстро → Золото + артефакт
+      ok("Испытание: быстрый безошибочный проход → Золото + Печать Мастера", S.trialBest===3 && S.artifacts.includes("trial"));
+    })();
+
     // --- Марафон ---
     fresh("y9");
     marathonRun(0); ok("Марафон: вся таблица = 45", marathon.qs.length===45);
