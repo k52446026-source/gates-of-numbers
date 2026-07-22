@@ -29,4 +29,5 @@ fs.writeFileSync(path.join(ROOT,"dist","game.html"), body);
 // та же конкатенация JS, что и в index.html — для смоук-тестов (строгий режим, как в проде)
 fs.writeFileSync(path.join(ROOT,"dist","bundle.js"), js);
 
-console.log("Собрано: index.html ("+html.length+" б) · dist/game.html ("+body.length+" б) · dist/bundle.js · модулей:", ORDER.length);
+const kb = s => (Buffer.byteLength(s) / 1024).toFixed(1) + " КБ";
+console.log("Собрано: index.html ("+kb(html)+") · dist/game.html ("+kb(body)+") · dist/bundle.js · модулей:", ORDER.length);
