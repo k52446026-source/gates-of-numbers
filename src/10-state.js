@@ -36,7 +36,7 @@ function defaultState(){
     stats:{answers:0, correct:0},
   };
 }
-function save(){ if(!curPlayer) return; try{ localStorage.setItem(playerKey(curPlayer.id), JSON.stringify(S)); }catch(e){} }
+function save(){ if(!curPlayer) return false; try{ localStorage.setItem(playerKey(curPlayer.id), JSON.stringify(S)); return true; }catch(e){ return false; } }
 function load(){
   try{
     const raw = curPlayer ? localStorage.getItem(playerKey(curPlayer.id)) : null;

@@ -52,6 +52,39 @@
     S.allLandsOpen=true; ok("гейтинг: allLandsOpen открывает всё", landUnlocked(7)===true);
     S.allLandsOpen=false;
 
+    // --- Сейв переживает отказ localStorage (нет «тихой» потери прогресса) ---
+    (function(){
+      ok("сейв: в норме save() сообщает успех", save()===true);
+      const orig = Storage.prototype.setItem;
+      let threw=false, ret;
+      try{
+        Storage.prototype.setItem = function(){ const e=new Error("quota"); e.name="QuotaExceededError"; throw e; };
+        try{ ret = save(); }catch(e){ threw=true; }
+      } finally {
+        Storage.prototype.setItem = orig; // вернуть обязательно, иначе рухнут следующие тесты
+      }
+      ok("сейв: отказ localStorage — save() не падает и возвращает false", !threw && ret===false);
+      ok("сейв: после восстановления хранилища save() снова успешен", save()===true);
+    })();
+
+    // --- Подсказки-декомпозиции арифметически верны (ловит опечатки в формулах) ---
+    (function(){
+      let checked=0; const bad=[];
+      for(let a=2;a<=10;a++) for(let b=a;b<=10;b++){
+        for(let pass=0; pass<2; pass++){          // оба пути: hintFlip чередуется внутри hintFor
+          const h = hintFor(a,b);
+          const ops = [...h.matchAll(/(\d+)\s*([+−-])\s*(\d+)/g)];
+          if(!ops.length) continue;               // ×-формы (×4,×5,×10) без бинарного +/− — пропускаем
+          const m = ops[ops.length-1];            // итоговая свёртка стоит последней
+          const val = m[2]==="+" ? (+m[1])+(+m[3]) : (+m[1])-(+m[3]);
+          checked++;
+          if(val !== a*b) bad.push(`${a}×${b}: «${m[0]}»=${val}≠${a*b}`);
+        }
+      }
+      ok("подсказки: итоговая свёртка = a×b ("+checked+" проверок)", checked>0 && bad.length===0);
+      if(bad.length) console.log("  ↳ ошибочные подсказки:", bad);
+    })();
+
     // --- движок вопроса ---
     (function(){ let r; askFact({a:6,b:7,onDone:(o,m,a)=>{r={o,a};}}); answer(42);
       return sleep(420).then(()=>ok("движок: верно с 1-й → ok=true", r.o===true && r.a===1)); })();
